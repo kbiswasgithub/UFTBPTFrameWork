@@ -1,0 +1,154 @@
+Option Explicit
+
+	'**************************************************************
+	'Function - NewExcelLibrary
+	'Description - Use this function to get an object of the ExcelHandler class
+	'Author - Lavneesh Chandna
+	'Date - Oct-18-2012
+	'**************************************************************
+	Function NewPDFLibrary
+		Set NewPDFLibrary=new AdobePDFHandler	
+	End Function
+
+	'**************************************************************
+	'Function - getActivePDFFilePath
+	'Description - Use this function to get the path of currently opened PDF file
+	'Author - Lavneesh Chandna
+	'Date - Nov-5-2012
+	'**************************************************************
+	Function getActivePDFFilePath		
+		Dim AcroApp, AcroAVDoc,AcroPDDoc
+		Dim jsPath,filePath
+		Set AcroApp = CreateObject( "AcroExch.App" )		
+		if(AcroApp.getNumAVDocs>0) then
+			Set AcroAVDoc = AcroApp.getAVDoc(0)
+			Set AcroPDDoc=AcroAVDoc.GetPDDoc
+			jsPath=AcroPDDoc.getJSObject.path
+			filePath=split(jsPath,"/")
+			filePath(1)=filePath(1) & ":"
+			filePath=join(filePath,"\")
+			filePath=right(filePath,len(filePath)-1)		
+		end if
+		getActivePDFFilePath=filePath
+	End Function
+
+Class AdobePDFHandler
+
+		Private pdfFilePath   
+		Private pdfErrorReport
+		Private pdfAcroPDDoc
+		Private pdfAcroAVDoc
+		Private pdfAcroApp
+	
+	
+	   Private Sub Class_Initialize		
+			pdfErrorReport=""		
+		End Sub
+	   '**************************************************************
+		'**************************************************************
+		'*******************PROPERTIES BEGIN*****************
+		'**************************************************************
+		'**************************************************************
+	
+		'**************************************************************
+		'Property - filePath
+		'Description - Use this property to set the current pdf file 
+		'Parameter - pdfToOpenFilePath(File path of the PDF to open)
+		'Error handling - Error is raised in case the file does not exist
+		'Author - Lavneesh Chandna
+		'Date - Nov-5-2012
+		'**************************************************************
+		Public Property Let filePath(valueToSet)	
+		   On Error Resume Next
+			Dim fso
+			Set fso=CreateObject("Scripting.FileSystemObject")
+			if(fso.FileExists(valueToSet)) then
+				pdfFilePath=valueToSet
+				Set pdfAcroApp=CreateObject( "AcroExch.App" )
+				On Error Goto 0
+				if(Err.Number<>0) then
+					Err.Clear
+					pdfErrorReport="Acrobat library for QTP Automation not found, cannot validate test including PDF validation and verification"
+					call Err.Raise(vbObjectError + 1,"PDFLibrary.filePath","Acrobat library for QTP Automation not found, cannot validate test including PDF validation and verification")				
+				else
+					Set pdfAcroAVDoc = CreateObject("AcroExch.AVDoc")
+					call pdfAcroAVDoc.open(pdfFilePath,"")
+					Set pdfAcroPDDoc=pdfAcroAVDoc.GetPDDoc
+				end if				
+			else
+				pdfErrorReport="File not found : " & valueToSet
+				call Err.Raise(vbObjectError + 1,"PDFLibrary.filePath","File not found : " & valueToSet)				
+			end if
+			On Error Goto 0
+		End Property
+	
+	
+	
+		'**************************************************************
+		'**************************************************************
+		'*******************PROPERTIES END*******************
+		'**************************************************************
+		'**************************************************************
+	
+	
+		
+		'**************************************************************
+		'**************************************************************
+		'*******************FUNCTIONS BEGIN*******************
+		'**************************************************************
+		'**************************************************************
+		Function getPDFErrorReport
+			getPDFErrorReport=pdfErrorReport
+		End Function
+
+		'**************************************************************
+		'Function - closePDF
+		'Description - Use this function to close the PDF and release the object
+		'Author - Lavneesh Chandna
+		'Date - Nov-5-2012
+		'**************************************************************
+		Function closePDFConnections
+			pdfAcroApp.Exit
+			pdfAcroAVDoc.Close True
+			Set	pdfAcroPDDoc=Nothing
+			Set pdfAcroApp=Nothing
+		End Function
+
+		'**************************************************************
+		'Function - verify1DData
+		'Description - Use this function verify the data present in the PDF
+		'Parameter - data1DArray("Data to verify as 1 d array, seperate various consecutive rows  in the PDF by spaces in the array strings")
+		'Author - Lavneesh Chandna
+		'Date - Nov-5-2012
+		'**************************************************************
+		Function verify1DData(data1DArray)
+
+			Dim bCaseSensitive, bWholeWordsOnly, bReset, bFound
+			bCaseSensitive = False
+			bWholeWordsOnly = False
+			bReset = False
+			Dim result
+			result=true
+			pdfErrorReport=""
+			Dim dataRow
+			For each dataRow in data1DArray
+				If dataRow <> "" Then
+					bFound = pdfAcroAVDoc.FindText( dataRow, bCaseSensitive, bWholeWordsOnly, bReset )
+					If NOT bFound then	
+						result=false
+						pdfErrorReport=pdfErrorReport & "PDF data mismatch. Data not found in PDF - " & dataRow &". "
+					end if
+				End If
+			Next
+			verify1DData=result
+
+		End Function
+		
+	
+	
+		'**************************************************************
+		'**************************************************************
+		'*******************FUNCTIONS END*******************
+		'**************************************************************
+		'**************************************************************
+End Class

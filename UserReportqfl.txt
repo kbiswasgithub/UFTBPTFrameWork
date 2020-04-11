@@ -1,0 +1,328 @@
+Const HTML_REPORT_NAME="Report.Html" 'Hold name of the html report to be created
+Const RESOURCES_FOLDER_NAME="R" 'Hold name of the resources folder
+Const XML_REPORT_NAME="Report.xml" 'Hold name of the xml report
+Const CARDINAL_LOGO_FILE_NAME="CardinalHealth.jpg"
+Const ENV_VAR_NAME_FOR_REPORT_FOLDER_PATH="REPORT_FOLDER_PATH" ' Hold name of the run time test data which will hold the position of the log repot in temp folder
+Const ENV_VAR_FOR_RESOURCES_FOLDER_PATH="RESOURCES_FOLDER_PATH"
+Const ENV_VAR_FOR_HTML_REPORT_PATH="HTML_REPORT_PATH"
+Const ENV_VAR_FOR_XML_REPORT_PATH="XML_REPORT_PATH"
+Const ENV_VAR_FOR_CURRENT_STEP_NUMBER="CURRENT_STEP_NUMBER"
+Const ENV_VAR_FOR_TEST_EXECUTION_PROGRESS="TEST_EXECUTION_PROGRESS"
+Const XML_REPORT_TAG="report"
+Const XML_STEPS_TAG="steps"
+Const XML_STEP_TAG="step"
+Const XML_STEP_NUMBER_TAG="number"
+Const XML_STEP_DESCRIPTION_TAG="description"
+Const XML_STEP_EXPECTED_RESULT_TAG="expected"
+Const XML_STEP_ACTUAL_RESULT_TAG="actual"
+Const XML_STEP_RESULT_TAG="result"
+Const XML_STEP_ATTACHMENT_TAG="attachment"
+Const XML_STEP_ATTACHMENT_NAME_TAG="name"
+Const XML_STEP_ATTACHMENT_PATH_TAG="path"
+Const XML_HEADER_TAG="header"
+Const XML_HEADER_DESCRIPTION="description"
+Const XML_START_TIME_NODE_TAG="start_time"
+Const XML_END_TIME_NODE_TAG="end_time"
+Const XML_TEST_NAME_ATTRIBUTE="test_name"
+Const XML_SYSTEM_NAME_ATTRIBUTE="system_name"
+Const XML_TEST_EXECUTION_PROGRESS_ATTRIBUTE="execution_progress"
+
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: initializeReport
+'Description     			: This method creates a folder in temp directory for the log and also creates the html report file and resources foler with xml report file
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 03/18/2013
+'*****************************************************************************************************************************************************************************
+Function initializeUserReport   
+	Dim fso, tempFolder, testName, cui' Current Uniqueness Identifier
+	Dim folderName, folderPath' Name of the folder in which the log goes in temp
+	Dim resFolderPath
+
+	Set fso=CreateObject("Scripting.FileSystemObject")
+	tempFolder=Environment.Value("SystemTempDir")
+	testName=getCurrentTestName
+	cui=0
+	Do while(fso.FolderExists(tempFolder & "\" & testName & "_" & cui))
+		cui=cint(cui)+1
+	Loop
+
+	folderName=testName & "_" & cui
+	folderPath=tempFolder & "\" & folderName	
+	call fso.CreateFolder(folderPath)
+	resFolderPath=folderPath & "\" & RESOURCES_FOLDER_NAME	
+	call fso.CreateFolder(resFolderPath)
+	Set fso=Nothing	
+	
+
+	'Set the environment variable in XML report so that other functions can use these values
+	Call setRTTD(ENV_VAR_FOR_RESOURCES_FOLDER_PATH,resFolderPath)
+    call setRTTD(ENV_VAR_NAME_FOR_REPORT_FOLDER_PATH,folderPath)
+	call setRTTD(ENV_VAR_FOR_HTML_REPORT_PATH,folderPath & "\" & HTML_REPORT_NAME)
+	call setRTTD(ENV_VAR_FOR_XML_REPORT_PATH,resFolderPath & "\" & XML_REPORT_NAME)
+	Call setRTTD(ENV_VAR_FOR_CURRENT_STEP_NUMBER,"0")
+	Call setRTTD(ENV_VAR_FOR_TEST_EXECUTION_PROGRESS,"In-Complete")
+
+	Call createHtmlReport(folderPath, resFolderPath)
+	Call createXMLReport(resFolderPath & "\" & XML_REPORT_NAME)		
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: initializeReport
+'Description     			: This method assumes that Report.html and CardinalHealth.jpg files are already download to the temp folder and then moves them to the required location
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 03/18/2013
+'*****************************************************************************************************************************************************************************
+Private Function createHtmlReport(folderPath, resFolderPath)
+   Dim fso, tempFolder
+   Set fso=CreateObject("Scripting.FileSystemObject")
+   tempFolder=Environment.Value("SystemTempDir")
+   fso.MoveFile tempFolder & "\" & HTML_REPORT_NAME,folderPath & "\" & HTML_REPORT_NAME
+   fso.MoveFile tempFolder & "\" & CARDINAL_LOGO_FILE_NAME,resFolderPath & "\" & CARDINAL_LOGO_FILE_NAME
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: initializeReport
+'Description     			: This method creates a folder in temp directory for the log and also creates the html report file and resources folder with xml report file
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 03/18/2013
+'*****************************************************************************************************************************************************************************
+Private Function createXMLReport(filePath)
+   Dim xmlDoc
+	Set xmlDoc=CreateObject("MSXML2.DomDocument")
+	xmlDoc.async=false
+	call xmlDoc.load(filePath)	
+	Dim root
+	Dim reportElem
+	Set reportElem=xmlDoc.createElement(XML_REPORT_TAG)		
+	xmlDoc.appendChild reportElem	
+	
+	reportElem.setAttribute XML_TEST_NAME_ATTRIBUTE, getCurrentTestName
+	reportElem.setAttribute XML_SYSTEM_NAME_ATTRIBUTE, Environment.Value("LocalHostName")	
+	reportElem.setAttribute XML_TEST_EXECUTION_PROGRESS_ATTRIBUTE, getRTTD(ENV_VAR_FOR_TEST_EXECUTION_PROGRESS)
+
+	Dim startTimeNode, endTimeNode
+	Set startTimeNode=xmlDoc.createElement(XML_START_TIME_NODE_TAG)
+	Set endTimeNode=xmlDoc.createElement(XML_END_TIME_NODE_TAG)
+	startTimeNode.appendChild xmlDoc.createTextNode(now)
+	reportElem.appendChild startTimeNode
+	endTimeNode.appendChild xmlDoc.createTextNode(now)
+	reportElem.appendChild endTimeNode
+	reportElem.appendChild xmlDoc.createElement(XML_STEPS_TAG)	
+	call xmlDoc.save(filePath)
+	Set xmlDoc=Nothing
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: logReport
+'Description     			: This method logs a step in html report
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 03/18/2013
+'*****************************************************************************************************************************************************************************
+Function logReport(stepDesc, expectedBehavior, actualBehavior, stepResult)
+	if(executingFromALM) then
+		call setRTTD(ENV_VAR_FOR_CURRENT_STEP_NUMBER,cint(getRTTD(ENV_VAR_FOR_CURRENT_STEP_NUMBER))+1)
+		Dim xmlDoc	
+		Set xmlDoc=CreateObject("MSXML2.DomDocument")
+		xmlDoc.async=false
+		xmlDoc.load getRTTD(ENV_VAR_FOR_XML_REPORT_PATH)
+		Dim stepsElem
+		Set stepsElem=xmlDoc.getElementsByTagName(XML_STEPS_TAG)
+		if(stepsElem.length<1) then
+			Err.Raise vbObjectError+1,"Reporting Library","The XML Report file has less than 1 <STEPS> tag which is not supported"
+		elseif(stepsElem.length>1) then
+			Err.Raise vbObjectError+1,"Reporting Library","The XML Report file has more than 1 <STEPS> tag which is not supported"
+		end if
+		Dim stepsTag, stepTag
+		Dim ssPath
+		ssPath=getRTTD(ENV_VAR_FOR_RESOURCES_FOLDER_PATH) & "\" & getRTTD(ENV_VAR_FOR_CURRENT_STEP_NUMBER) & ".png"
+		Set stepsTag=stepsElem.item(0)
+		Set stepTag=XMLDoc.createElement(XML_STEP_TAG)
+		stepsTag.appendChild stepTag
+		Dim sn, sd, ser, sar, sr
+		Set sn=XMLDoc.createElement(XML_STEP_NUMBER_TAG)
+		Set sd=XMLDoc.createElement(XML_STEP_DESCRIPTION_TAG)
+		Set ser=XMLDoc.createElement(XML_STEP_EXPECTED_RESULT_TAG)
+		Set sar=XMLDoc.createElement(XML_STEP_ACTUAL_RESULT_TAG)
+		Set sr=XMLDoc.createElement(XML_STEP_RESULT_TAG)
+				
+		sn.appendChild xmlDoc.createTextNode(getRTTD(ENV_VAR_FOR_CURRENT_STEP_NUMBER))		
+		sd.appendChild xmlDoc.createTextNode(stepDesc)
+		ser.appendChild xmlDoc.createTextNode(expectedBehavior)
+		sar.appendChild xmlDoc.createTextNode(actualBehavior)
+		sr.appendChild xmlDoc.createTextNode(stepResult)		
+		stepTag.appendChild sn
+		stepTag.appendChild sd
+		stepTag.appendChild ser
+		stepTag.appendChild sar
+		stepTag.appendChild sr		
+	
+	
+		Desktop.CaptureBitmap ssPath
+		Dim atmtPath
+		Dim atmt, atmtName
+		Set atmt=xmlDoc.createElement(XML_STEP_ATTACHMENT_TAG)
+		Set atmtName=xmlDoc.createElement(XML_STEP_ATTACHMENT_NAME_TAG)
+		Set atmtPath=xmlDoc.createElement(XML_STEP_ATTACHMENT_PATH_TAG)
+		atmtName.appendChild xmlDoc.createTextNode("Screenshot")
+		atmtPath.appendChild xmlDoc.createTextNode(RESOURCES_FOLDER_NAME & "\" & getRTTD(ENV_VAR_FOR_CURRENT_STEP_NUMBER) & ".png")
+		atmt.appendChild atmtName
+		atmt.appendChild atmtPath
+		stepTag.appendChild atmt
+		
+		'Update the end time tag
+		Dim etts
+		Set etts=xmlDoc.getElementsByTagName("end_time")		
+		Dim ett
+		Set ett=etts.item(etts.length-1)
+		ett.firstChild.text=now
+		xmlDoc.save getRTTD(ENV_VAR_FOR_XML_REPORT_PATH)
+		Set xmlDoc=Nothing
+	end if
+	print stepResult & " - " & stepDesc & " -  Expected Result: " & expectedBehavior & " - Actual Result: " & actualBehavior	
+	if(UCase(stepResult)="FAIL") then
+		Reporter.ReportEvent micFail,stepDesc," -  Expected Result: " & expectedBehavior & " - Actual Result: " & actualBehavior
+	else
+		Reporter.ReportEvent micPass,stepDesc," -  Expected Result: " & expectedBehavior & " - Actual Result: " & actualBehavior
+	end if
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: addAttachmentToLog
+'Description     			: This method adds an attachment in the HTML report
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 03/18/2013
+'*****************************************************************************************************************************************************************************
+Function addAttachmentToLog(attachmentName, filePath)
+	if(executingFromALM) then
+		Dim fso
+		Set fso=CreateObject("Scripting.FileSystemObject")
+		if(fso.FileExists(filePath)) then
+			Dim atmtPath, cui
+			Dim atmt, atmtName
+			Dim atmtPathTag, atmtNameTag
+			cui=0
+			atmtPath=getRTTD(ENV_VAR_FOR_RESOURCES_FOLDER_PATH) & "\" & attachmentName & "_" & cui
+			Do while(fso.FileExists(atmtPath))
+				cui=cint(cui)+1				
+				atmtPath=getRTTD(ENV_VAR_FOR_RESOURCES_FOLDER_PATH) & "\" & attachmentName & "_" & cui
+			Loop
+			atmtPath=atmtPath & "." &  fso.GetExtensionName(filePath)
+			call fso.CopyFile(filePath,atmtPath)
+			Dim xmlDoc	
+			Set xmlDoc=CreateObject("MSXML2.DomDocument")
+			xmlDoc.async=false
+			xmlDoc.load getRTTD(ENV_VAR_FOR_XML_REPORT_PATH)
+			Dim stepsElem
+			Set stepsElem=xmlDoc.getElementsByTagName(XML_STEP_TAG)
+			if(stepsElem.length<1) then
+				Err.Raise vbObjectError+1,"Reporting Library","The XML Report file has less than 1 <STEP> tag which is not supported whie adding an attachment"			
+			end if
+			Dim lastStep
+			Set lastStep=stepsElem.item(stepsElem.length-1)					
+			Set atmt=xmlDoc.createElement(XML_STEP_ATTACHMENT_TAG)
+			Set atmtNameTag=xmlDoc.createElement(XML_STEP_ATTACHMENT_NAME_TAG)
+			Set atmtPathTag=xmlDoc.createElement(XML_STEP_ATTACHMENT_PATH_TAG)
+			atmtNameTag.appendChild xmlDoc.createTextNode(attachmentName)
+			atmtPathTag.appendChild xmlDoc.createTextNode(RESOURCES_FOLDER_NAME & "\" & fso.GetFileName(atmtPath))
+			atmt.appendChild atmtNameTag
+			atmt.appendChild atmtPathTag
+			lastStep.appendChild atmt
+
+
+			'Update the end time tag
+			Dim etts
+			Set etts=xmlDoc.getElementsByTagName("end_time")			
+			Dim ett
+			Set ett=etts.item(etts.length-1)
+			ett.firstChild.text=now
+
+			xmlDoc.save getRTTD(ENV_VAR_FOR_XML_REPORT_PATH)
+			Set xmlDoc=Nothing
+		else
+			Err.Raise vbObjectError+1,"Reporting Library","The file to be attached in the log does not exist at its path " & filePath
+		end if
+	end if
+	print "ADD ATTACHMENT : " & attachmentName & " - " &  filePath
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: logHeader
+'Description     			: This method creates a bold header demarcation in the html log report
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 03/18/2013
+'*****************************************************************************************************************************************************************************
+Function logHeader(headerDesc)
+   if(executingFromALM) then
+		Dim xmlDoc	
+		Set xmlDoc=CreateObject("MSXML2.DomDocument")
+		xmlDoc.async=false
+		xmlDoc.load getRTTD(ENV_VAR_FOR_XML_REPORT_PATH)
+		Dim stepsElem
+		Set stepsElem=xmlDoc.getElementsByTagName(XML_STEPS_TAG)
+		if(stepsElem.length<1) then
+			Err.Raise vbObjectError+1,"Reporting Library","The XML Report file has less than 1 <STEPS> tag which is not supported"
+		elseif(stepsElem.length>1) then
+			Err.Raise vbObjectError+1,"Reporting Library","The XML Report file has more than 1 <STEPS> tag which is not supported"
+		end if
+		
+		Dim headerTag
+		Set headerTag=xmlDoc.createElement(XML_HEADER_TAG)
+		
+		headerTag.appendChild xmlDoc.createTextNode(headerDesc)
+		
+		stepsElem.item(0).appendChild headerTag
+	
+		'Update the end time tag
+		Dim etts
+		Set etts=xmlDoc.getElementsByTagName("end_time")		
+		Dim ett
+		Set ett=etts.item(etts.length-1)
+		ett.firstChild.text=now
+	
+		xmlDoc.save getRTTD(ENV_VAR_FOR_XML_REPORT_PATH)
+		Set smlDoc=Nothing
+	end if
+	print "HEADER : " & headerDesc
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: endReport
+'Description     			: This method ZIPs the report folder in the temp directory and uploades it to the ALMCurrent TSTest
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 03/18/2013
+'*****************************************************************************************************************************************************************************
+Function endUserReport
+	if(executingFromALM) then	
+		Call setRTTD(ENV_VAR_FOR_TEST_EXECUTION_PROGRESS,"Complete")
+		Dim xmlDoc	
+		Set xmlDoc=CreateObject("MSXML2.DomDocument")
+		xmlDoc.async=false
+		xmlDoc.load getRTTD(ENV_VAR_FOR_XML_REPORT_PATH)
+		Dim reportTag
+		Set reportTag=xmlDoc.getElementsByTagName(XML_REPORT_TAG).item(0)
+		reportTag.attributes.getNamedItem(XML_TEST_EXECUTION_PROGRESS_ATTRIBUTE).text=getRTTD(ENV_VAR_FOR_TEST_EXECUTION_PROGRESS)
+		xmlDoc.save getRTTD(ENV_VAR_FOR_XML_REPORT_PATH)
+		Set smlDoc=Nothing
+		Dim currentTest, currentTestSet, currentTestSetFactory, atmt
+		Call zip(getRTTD(ENV_VAR_NAME_FOR_REPORT_FOLDER_PATH),getRTTD(ENV_VAR_NAME_FOR_REPORT_FOLDER_PATH) & ".zip")
+		Set currentTest=QCUtil.CurrentTestSetTest
+		Set currentTestSet=QCUtil.CurrentTestSet
+		Set currentTestSetFactory=currentTestSet.TSTestFactory
+		Set atmt=currentTest.attachments.addItem(null)
+		atmt.FileName=getRTTD(ENV_VAR_NAME_FOR_REPORT_FOLDER_PATH) & ".zip"
+		atmt.Type=1
+		atmt.post				
+	end if
+End Function

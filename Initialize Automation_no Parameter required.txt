@@ -1,0 +1,94 @@
+		 Dim projectPath
+		 projectPath="Subject\MBT"
+		 Call downloadCurrentTestAttachments
+		Call downloadCurrentProjectAttachments(projectPath)
+		Call initializeUserReport		
+
+
+
+
+Function downloadCurrentProjectAttachments(testPlanProjectNodePath)
+    if(executingFromALM) then   
+	   Set wshshell=CreateObject("Wscript.Shell")                                      
+	   Dim TDConnection
+	   Set TDConnection=QCUtil.QCConnection
+	   Set treeMgr=TDConnection.TreeManager
+	   Set testPlanProjectNode=treeMgr.nodeByPath(testPlanProjectNodePath)
+	   Set testAttachments=testPlanProjectNode.attachments
+	   Set testAttachmentsList=testAttachments.newList("")
+	   Dim tempPath
+	   tempPath=Environment.Value("SystemTempDir")
+	   Set fso=CreateObject("Scripting.FileSystemObject")
+	   Dim extraPath                
+	   extraPath=UCase("ALL_LISTS_" & testPlanProjectNode.NodeId & "_")
+	   Set ExtendedStorage = TDConnection.ExtendedStorage
+					Dim testDataFilePath
+	
+	   For each atmt in testAttachmentsList     			
+			testDataFilePath=tempPath & "\" & atmt.Name
+			if(fso.FileExists(testDataFilePath)) then
+							call fso.DeleteFile(testDataFilePath,true)
+							Do while(fso.FileExists(testDataFilePath))
+											wait(1)
+							Loop      
+			end if
+			pos=instr(1,atmt.ServerFileName, atmt.Name)
+			atmtServerPath= Left(atmt.ServerFileName, pos - 1)
+			ExtendedStorage.ServerPath = atmtServerPath
+			ExtendedStorage.ClientPath =tempPath
+			ExtendedStorage.Load atmt.Name, True
+			Do while(NOT fso.FileExists(testDataFilePath))
+							wait(1)
+			Loop
+			Dim constantFilePath			
+			Dim actualFileName
+			actualFileName=fso.GetFileName(testDataFilePath)                                                                   
+			constantFilePath=tempPath & "\" & right(actualFileName,len(actualFileName)-len(extraPath))
+			if(fso.FileExists(constantFilePath)) then
+							call fso.DeleteFile(constantFilePath)
+							Do while(fso.FileExists(constantFilePath))
+											wait(1)
+							Loop
+			end if
+			call fso.MoveFile(testDataFilePath,constantFilePath)					
+	   Next              
+    end if
+End Function
+
+Function downloadCurrentTestAttachments
+	Set theTest=QCUtil.CurrentTest
+			testID=theTest.ID
+			Set atmts=theTest.Attachments
+		   Set atmtList=atmts.newList("")		   
+		   Dim tempPath
+		   tempPath=Environment.Value("SystemTempDir")
+		   Set fso=CreateObject("Scripting.FileSystemObject")
+		   For each atmt in atmtList
+				 testDataFilePath=tempPath & "\" & atmt.Name
+					if(fso.FileExists(testDataFilePath)) then
+						call fso.DeleteFile(testDataFilePath,true)
+						Do while(fso.FileExists(testDataFilePath))
+							print "waiting to delete" & testDataFilePath
+							wait(1)
+						Loop	
+					end if
+
+			Set objExtStorage = atmt.AttachmentStorage
+			objAttachmentName = atmt.DirectLink
+			'print "Direct link: " & objAttachmentName
+			objExtStorage.ClientPath = tempPath
+			objExtStorage.Load objAttachmentName, true
+
+			newFilePath=tempPath & "\" & right(objAttachmentName, len(objAttachmentName)-len("TEST_" & testID & "_"))
+
+			'print "new file name" & newFilePath
+			if(fso.FileExists(newFilePath)) then
+						call fso.DeleteFile(newFilePath,true)
+						Do while(fso.FileExists(newFilePath))							
+							wait(1)
+						Loop
+			End If
+			fso.MoveFile tempPath & "\" & objAttachmentName, newFilePath
+			print newFilePath				
+		   Next
+End Function

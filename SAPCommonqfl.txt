@@ -1,0 +1,1373 @@
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: executeSAPTCode
+'Description     			: Execute the specified T-Code in the SAPGUISession
+'Parameters Used     : sessionNumber("Starting from 0"), tCode("t-code to execute")
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/12/2012
+'*****************************************************************************************************************************************************************************						
+Function SAPExecuteTCode(sessionNumber, tCode)
+	Dim sessionObject
+	Set sessionObject=SAPGuiSession("micclass:=SAPGuiSession","index:=" & sessionNumber)
+	if(objectExists(sessionObject,"")) then
+		call PA(sessionObject.SAPGuiOKCode("micclass:=SAPGuiOKCode"),"set",tCode,"T-Code edit box")
+	else
+		Call logReport("Execute T-code " & tCode & " in the SAP Gui Session number " & sessionNumber,"T-Code executed","Session number not found","FAIL")
+		Exit Function
+	end if
+	Call SAPClickOnButtonWithToolTip(sessionNumber,".*ENTER.*")
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: navigateSAPBack
+'Description     			: Navigate back in the specified SAP gui session
+'Parameters Used     : sessionNumber("Starting from 0")
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/12/2012
+'*****************************************************************************************************************************************************************************						
+Function SAPNavigateBack(sessionNumber)
+	Call SAPClickOnButtonWithToolTip(sessionNumber,"Back   \(F3\)")
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPExecute
+'Description     			: Click on the execute(F8) button in the given SAP session
+'Parameters Used     : sessionNumber("Starting from 0")
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/12/2012
+'*****************************************************************************************************************************************************************************						
+Function SAPExecuteF8(sessionNumber)   
+   Call SAPClickOnButtonWithToolTip(sessionNumber,".*F8.*")
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPClickOnButtonWithToolTip
+'Description     			: Click on the any button in the SAP Gui screen by giving its tooltip text
+'Parameters Used     : sessionNumber("Starting from 0")
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/13/2012
+'*****************************************************************************************************************************************************************************						
+Function SAPClickOnButtonWithToolTip(sessionNumber, tooltTipOfButtonToClick)
+	Dim sessionObject, executeButtons
+	Set sessionObject=SAPGuiSession("micclass:=SAPGuiSession","index:=" & sessionNumber)
+	if(objectExists(sessionObject,"")) then	
+		executeButtons=getMatchingObjects(sessionObject,"SAPGuiButton",Array("tooltip"),Array(tooltTipOfButtonToClick))
+		if(UBound(executeButtons)>=0) then
+			Call PA(executeButtons(0),"click",,tooltTipOfButtonToClick)
+			sessionObject.Sync
+		else
+			Call logReport("Click on the  " & tooltTipOfButtonToClick & " button in the SAP Gui Session number " & sessionNumber,"Clicked successfully","Button not found","FAIL")
+		end if
+	else
+		Call logReport("Click on the  " & tooltTipOfButtonToClick & " button in the SAP Gui Session number " & sessionNumber,"Clicked successfully","Session number not found","FAIL")
+		Exit Function
+	end if	
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPGUITree_ColumnTree_ExpandNode
+'Description     			: Expand a node 
+'Parameters Used     : Tree Object,Node Name to be expanded
+'Author							:  Cardinal Automation Team (Koushik)
+'Date Created			: 05/20/2015
+'*****************************************************************************************************************************************************************************			
+Function SAPGUITree_ColumnTree_ExpandNode(SAPGUITreeObject,uniqueNodeValue)
+   	On error resume next 
+   	err.clear
+	Dim CurrentNodeIndex	
+	Dim currNodeKey
+	Dim selectedNodePath	
+	
+	Set nodeKeys= SAPGUITreeObject.Object.GetAllNodeKeys
+	For CurrentNodeIndex= 0 to nodeKeys.count-1			
+			currNodeKey=nodeKeys(CurrentNodeIndex)						
+			If (instr(1,SAPGUITreeObject.Object.GetNodeTextByKey(currNodeKey),uniqueNodeValue)>0) then
+					selectedNodePath=SAPGUITreeObject.Object.GetNodePathByKey(currNodeKey)
+					Exit for 
+			end if 
+	Next
+	
+	If (CurrentNodeIndex<>nodeKeys.count) Then
+		selectedNodePath="#" & replace(selectedNodePath,"\",";#") 			
+		SAPGUITreeObject.Expand selectedNodePath	
+		print selectedNodePath
+	else 
+		Call logReport("Select Node with text  " & uniqueNodeValue & " from the SAPGUI Tree","Node selected successfully","Node not found","FAIL")
+		SAPGUITree_ColumnTree_NavigateToNode=null
+		Exit Function
+	End If
+	
+	If (err.number=0) Then
+		Call logReport("Select Node  " & uniqueNodeValue & " from the SAPGUI Tree","Node selected successfully","Node selected successfully","PASS")
+		SAPGUITree_ColumnTree_NavigateToNode=selectedNodePath
+	else 
+		Call logReport("Select Node  " & uniqueNodeValue & " from the SAPGUI Tree","Node selected successfully","Node not Selected. " & Err.Description,"FAIL")
+		SAPGUITree_ColumnTree_NavigateToNode=null
+	End If
+	
+	Set nodeKeys=Nothing
+	
+	On error goto 0
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPCloseSession
+'Description     			: Function to close an already running SAP session
+'Parameters Used     : sessionNumber("Starting from 0")
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 1/21/2013
+'*****************************************************************************************************************************************************************************						
+Function SAPCloseSession(sessionNumber)
+	Dim sessionObject
+	Set sessionObject=SAPGuiSession("micclass:=SAPGuiSession","index:=" & sessionNumber)
+	if(objectExists(sessionObject,"")) then
+		sessionObject.close
+	end if
+End Function
+
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPTreeNavigateToNode
+'Description     			: Navigate and select a node inside a tree
+'Parameters Used     : Tree Object,Uniques string value
+'Author							:  Cardinal Automation Team (Nayan)
+'Date Created			: 12/13/2012
+'*****************************************************************************************************************************************************************************			
+Function SAPGUITree_ColumnTree_NavigateToNode(SAPGUITreeObject,uniqueNodeValue)
+   On error resume next 
+   err.clear
+	Dim CurrentNodeIndex	
+	Dim currNodeKey
+	Dim selectedNodePath	
+	set nodeKeys= SAPGUITreeObject.Object.GetAllNodeKeys
+	For CurrentNodeIndex= 0 to nodeKeys.count-1			
+			currNodeKey=nodeKeys(CurrentNodeIndex)						
+			If (instr(1,SAPGUITreeObject.Object.GetNodeTextByKey(currNodeKey),uniqueNodeValue)>0) then
+					selectedNodePath=SAPGUITreeObject.Object.GetNodePathByKey(currNodeKey)
+					Exit for 
+			end if 
+	Next
+
+	If (CurrentNodeIndex<>nodeKeys.count) Then
+		selectedNodePath="#" & replace(selectedNodePath,"\",";#")		
+		SAPGUITreeObject.selectNode(selectedNodePath)		
+		print selectedNodePath
+	else 
+		Call logReport("Select Node with text  " & uniqueNodeValue & " from the SAPGUI Tree","Node selected successfully","Node not found","FAIL")
+		SAPGUITree_ColumnTree_NavigateToNode=null
+		Exit Function
+	End If
+	
+	If (err.number=0) Then
+		Call logReport("Select Node  " & uniqueNodeValue & " from the SAPGUI Tree","Node selected successfully","Node selected successfully","PASS")
+		SAPGUITree_ColumnTree_NavigateToNode=selectedNodePath
+	else 
+		Call logReport("Select Node  " & uniqueNodeValue & " from the SAPGUI Tree","Node selected successfully","Node not Selected. " & Err.Description,"FAIL")
+		SAPGUITree_ColumnTree_NavigateToNode=null
+	End If
+	On error goto 0
+End Function
+
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPGUIVerifyGetNodeItemStatus
+'Description     			: Navigate and select a node item and get the Status
+'Parameters Used     : Tree Object,Uniques string value
+'Author							:  Cardinal Automation Team (Nayan)
+'Date Created			: 12/13/2012
+'*****************************************************************************************************************************************************************************			
+
+Function SAPGUITree_ColumnTree_VerifyNodeItemStatus(SAPGUITreeObject,UniqueNodeValue,ExpectedStatus)
+   On error resume next
+   Err.Clear
+    Dim nodePath
+	nodePath=SAPGUITree_ColumnTree_NavigateToNode(SAPGUITreeObject,UniqueNodeValue)
+	If NOT(Isnull(nodePath)) Then
+		Call SAPGUITreeObject.selectItem(nodePath,"#3")
+		If (err.number=0) Then			
+			If ( UCase(SAPGUITreeObject.getRoproperty("selectedItem"))=UCase(ExpectedStatus)) then 
+				Call logReport("Verify the Status for  Node " & UniqueNodeValueUniqueNodeValue,"Expected Status: " & ExpectedStatus,SAPGUITreeObject.getRoproperty("selectedItem"),"PASS")
+				SAPGUITreeVerifyNodeItemStatus=true
+			else 
+				Call logReport("Verify the Status for  Node " & UniqueNodeValue,"Expected Status: " & ExpectedStatus,SAPGUITreeObject.getRoproperty("selectedItem"),"FAIL")
+				SAPGUITreeVerifyNodeItemStatus=false
+			End if 
+		else 
+		Call logReport("Verify the Status for  Node " & UniqueNodeValue,"Expected Status: " & ExpectedStatus,"Status not found","FAIL")
+		SAPGUITreeVerifyNodeItemStatus=false
+		end if 	
+	else
+		SAPGUITreeVerifyNodeItemStatus=false
+	End If
+	On error goto 0
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPGUITree_ColumnTree_CheckWhetherNodeAvailable
+'Description     			: Check whether node with given value exists
+'Parameters Used     : SAPGUITreeObject,UniqueNodeValue
+'Author							:  Cardinal Automation Team (Nayan)
+'Date Created			: 12/13/2012
+'*****************************************************************************************************************************************************************************			
+Function SAPGUITree_ColumnTree_GetNodeAvailabilityStatus(SAPGUITreeObject,UniqueNodeValue)
+	On error resume next 
+	err.clear
+	Dim CurrentNodeIndex,nodeKeys,matched
+	matched =false
+	
+	set nodeKeys= SAPGUITreeObject.Object.GetAllNodeKeys
+	If (err.number=0) Then
+		For CurrentNodeIndex= 0 to nodeKeys.count-1
+			if (instr(1,SAPGUITreeObject.Object.GetNodeTextByKey(nodeKeys(CurrentNodeIndex)),UniqueNodeValue)>0) then 
+					matched=true
+					exit for 
+			end if 
+		Next		
+	end if 
+	SAPGUITree_ColumnTree_GetNodeAvailabilityStatus=matched
+	On error goto 0
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPGUITreeVerifyNodeExists
+'Description     			: Verify node exists inside a tree or not 
+'Parameters Used     : SAPGUITreeObject,UniqueNodeValue,CheckExist
+'Author							:  Cardinal Automation Team (Nayan)
+'Date Created			: 12/13/2012
+'*****************************************************************************************************************************************************************************			
+Function SAPGUITree_ColumnTree_VerifyNodeExists(SAPGUITreeObject,UniqueNodeValue,CheckExists)
+	
+	On error resume next 
+	err.clear
+	Dim CurrentNodeIndex,nodeKeys,matched
+	matched =false
+	Dim resultText
+	if(CheckExists) then
+		resultText="exists"
+	else
+		resultText="does not exist"
+	end if
+	set nodeKeys= SAPGUITreeObject.Object.GetAllNodeKeys
+	If (err.number=0) Then
+		For CurrentNodeIndex= 0 to nodeKeys.count-1
+			if (instr(1,SAPGUITreeObject.Object.GetNodeTextByKey(nodeKeys(CurrentNodeIndex)),UniqueNodeValue)>0) then 
+					matched=true
+					exit for 
+			end if 
+		Next
+		
+		If (CheckExists=matched) then
+				SAPGUITree_ColumnTree_VerifyNodeExists=true
+				Call logReport("Verify that a node with value " & UniqueNodeValue & " " & resultText &" in the GUITree","As expected","As expected","PASS")
+		else 
+				SAPGUITree_ColumnTree_VerifyNodeExists=false
+				Call logReport("Verify that a node with value " & UniqueNodeValue & " " & resultText &" in the GUITree","As expected","Not as expected. Actual status : " & matched,"FAIL")
+		end if 		
+	else 
+		Call logReport("Verify that a node with value " & UniqueNodeValue & " " & resultText &" in the GUITree","As expected","Error encountered : " & Err.Description,"FAIL")
+		SAPGUITree_ColumnTree_VerifyNodeExists = False
+	end if 
+	On error goto 0
+
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPHandleStatusBarMessages
+'Description     			: Handle the SAP Status message by clicking the Enter button
+'Parameters Used     : sessionNumber("Starting from 0"), messageTypeToHandle ("W", "S", Array("W","S"))
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/31/2012
+'*****************************************************************************************************************************************************************************						
+Function SAPHandleStatusBarMessages(sessionNumber, messageTypeToHandle, buttonToClick)
+   Dim result
+   result=false
+   if(IsArray(messageTypeToHandle)) then
+		messageTypeToHandle=join(messageTypeToHandle,"|")
+   end if
+	Dim sessionObject		
+	Dim statusBar
+	Set sessionObject=SAPGuiSession("micclass:=SAPGuiSession","index:=" & sessionNumber)
+	if(objectExists(sessionObject,"")) then
+		Do
+			wait(2)
+			Set statusBar=sessionObject.SAPGuiStatusBar("micclass:=SAPGuiStatusBar","messagetype:=" & messageTypeToHandle,"index:=0")
+			if(objectExists(statusBar,2)) then	
+				call SAPClickOnButtonWithToolTip(sessionNumber,buttonToClick)			
+				Call logReport("Status bar message encountered : " & statusBar.getROProperty("text"),"Message is handled","Message is handled","PASS")
+				result=true
+			else
+				Exit Do
+			end if			
+		Loop While(true)		
+	end if
+	SAPHandleStatusBarMessages=result
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPHandleStatusBarMessage
+'Description     			: Handle the SAP Status message with given text
+'Parameters Used     : sessionNumber("Starting from 0"), messageText (""), buttonToClick("Can be blank "")
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/31/2012
+'*****************************************************************************************************************************************************************************						
+Function SAPHandleStatusBarMessage(sessionNumber, messageText, buttonToClick, logFailure)
+	Dim sessionObject, statusMessage, statusBar,result
+	result=false
+	Set sessionObject=SAPGuiSession("micclass:=SAPGuiSession","index:=" & sessionNumber)
+	if(objectExists(sessionObject,"")) then
+			sessionObject.Sync
+			wait(2)
+			Set statusBar=sessionObject.SAPGuiStatusBar("micclass:=SAPGuiStatusBar","text:=" & messageText)
+			if(objectExists(statusBar,"")) then				
+				Call logReport("Handle status bar with message " & messageText,"Status message found","Status message found","PASS")
+				result=true
+			elseif(logFailure) then
+				Call logReport("Handle status bar with message " & messageText,"Status message found","Status bar not found with the given message","FAIL")
+			end if
+			if((NOT isNull(buttonToClick)) AND buttonToClick<>"") then	
+				call SAPClickOnButtonWithToolTip(sessionNumber,buttonToClick)							
+			End If			
+	else
+		if(logFailure) then
+			Call logReport("Handle status bar with message " & messageText,"Status message found","Session not found","FAIL")
+		End if
+	end if
+	SAPHandleStatusBarMessage=result
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPGetStatusBarMessage
+'Description     			: Get the currently displayed status bar message
+'Parameters Used     : sessionNumber("Starting from 0")
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 2/4/2012
+'*****************************************************************************************************************************************************************************						
+Function SAPGetStatusBarMessage(sessionNumber)
+	Dim sessionObject, statusMessage, statusBar, result	
+	Set sessionObject=SAPGuiSession("micclass:=SAPGuiSession","index:=" & sessionNumber)
+	result=""
+	if(objectExists(sessionObject,"")) then
+		sessionObject.Sync		
+		Set statusBar=sessionObject.SAPGuiStatusBar("micclass:=SAPGuiStatusBar")
+		if(objectExists(statusBar,"")) then				
+			result=statusBar.GetROProperty("text")	
+		end if			
+	end if
+	SAPGetStatusBarMessage=result
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPHandleDialogMessages
+'Description     			: Handle the SAP dialog messages by clicking the Continue (Enter) button
+'Parameters Used     : sessionNumber("Starting from 0")
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/31/2012
+'*****************************************************************************************************************************************************************************						
+Function SAPHandleDialogMessages(sessionNumber)
+
+   	Dim sessionObject		
+	Dim dialogMessage
+	Dim result
+	result=false
+	Set sessionObject=SAPGuiSession("micclass:=SAPGuiSession","index:=" & sessionNumber)
+	if(objectExists(sessionObject,"")) then
+		Do
+			wait(2)
+			Set dialogMessage=sessionObject.SAPGuiWindow("micclass:=SAPGuiWindow","type:=GuiModalWindow")
+			Set enterButton = sessionObject.SAPGuiButton("micclass:=SAPGuiButton","tooltip:=Continue   \(Enter\)")
+			if(objectExists(dialogMessage,"") and objectExists(enterButton,"")) then
+				call SAPClickOnButtonWithToolTip(sessionNumber,"Continue   \(Enter\)")
+				Call logReport("Dialog message encountered : " & dialogMessage.getROProperty("text"),"Message is handled","Message is handled","PASS")
+				result=true
+			else
+				Exit Do
+			end if			
+		Loop While(true)		
+	end if
+	SAPHandleDialogMessages=result
+
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPHandleDialogMessage
+'Description     			: Handle the SAP dialog message
+'Parameters Used     : sessionNumber("Starting from 0"), dialogTitle ("Title of the dialog. Could be RegExp string"), messageText("Text displayed in the dialog, could be null")
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/31/2012
+'*****************************************************************************************************************************************************************************						
+Function SAPHandleDialogMessage(sessionNumber, dialogTitle, messageText, buttonToClick, logFailure)
+   	Dim sessionObject		
+	Dim dialogMessage
+	Dim result
+	result=false
+	Set sessionObject=SAPGuiSession("micclass:=SAPGuiSession","index:=" & sessionNumber)
+	if(objectExists(sessionObject,"")) then		
+		wait(2)
+		Set dialogMessage=sessionObject.SAPGuiWindow("micclass:=SAPGuiWindow","type:=GuiModalWindow","text:=" & dialogTitle)
+		if(objectExists(dialogMessage,"")) then
+			if(isNull(messageText)) then
+				call SAPClickOnButtonWithToolTip(sessionNumber,buttonToClick)
+				Call logReport("Handle a dialog with title: " & dialogTitle,"Dialog handled","Dialog handled","PASS")
+				result=true
+			else
+				if(objectExists(dialogMessage.SAPGuiTextArea("value:=" & messageText), 2)) then	
+					call SAPClickOnButtonWithToolTip(sessionNumber,buttonToClick)
+					Call logReport("Handle a dialog with title: " & dialogTitle & ", and text : " & messageText,"Dialog handled","Dialog found. Message text found","PASS")
+					result=true
+				elseif(objectExists(dialogMessage.SAPGuiEdit("value:=" & messageText), 2)) then	
+					call SAPClickOnButtonWithToolTip(sessionNumber,buttonToClick)
+					Call logReport("Handle a dialog with title: " & dialogTitle & ", and text : " & messageText,"Dialog handled","Dialog found. Message text found","PASS")
+					result=true
+				elseif(logFailure) then
+					call SAPClickOnButtonWithToolTip(sessionNumber,buttonToClick)
+					Call logReport("Handle a dialog with title: " & dialogTitle & ", and text : " & messageText,"Dialog handled","Dialog found. Message text not found","FAIL")					
+				end if
+			end if
+		elseif(logFailure) then
+			Call logReport("Handle a dialog with title: " & dialogTitle & ", and text : " & messageText,"Dialog handled","Dialog not found","FAIL")
+		end if					
+	end if
+	SAPHandleDialogMessage=result
+End Function
+
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: getSAPRowIndexHavingData
+'Description     			:  Function to get Row Index of the Data contained in Table.
+'Parameters Used     :  tblObj - SAPGrid Object
+'										:  colName - name of the Column
+'										:   expectedData - Data to be seached in Table
+'										:  exactMatch - Whether to exacly matched or partial
+'Author							:  Cardinal Automation Team(Viaj)
+'Date Created			:  8 Jan 2012
+'*****************************************************************************************************************************************************************************
+Function getSAPRowIndexHavingData(tblObj, colName, expectedData, exactMatch)
+
+	Dim dataToReturn, i
+	dataToReturn = 0
+
+	On Error Resume Next
+	If tblObj.RowCount > 0 Then
+		For i=1 To tblObj.RowCount
+			If tblObj.ValidRow(i) Then
+				If exactMatch Then
+					If CStr(tblObj.GetCellData(CInt(i), Cstr(colName))) = expectedData Then
+						dataToReturn = i
+						Exit For
+					End If
+				Else
+					If InStr(1, CStr(tblObj.GetCellData(CInt(i), Cstr(colName))), expectedData) > 0 Then
+						dataToReturn = i
+						Exit For
+					End If
+				End If				
+			Else
+				Exit For
+			End If
+		Next
+	Else
+		Print "0 Records available"
+	End If
+	On Error Goto 0
+	getSAPRowIndexHavingData = dataToReturn
+
+End Function
+
+
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: getSAPColumnDataByName
+'Description     			:  Function to get Coumn Data from the SAP Grid table.
+'Parameters Used     :  tblObj - SAPGrid Object
+'										:  colName - name of the Column
+'Author							:  Cardinal Automation Team(Viaj)
+'Date Created			:  8 Jan 2012
+'*****************************************************************************************************************************************************************************
+Function getSAPColumnDataByName(tblObj, colName)
+
+	Dim dataToReturn, i
+	On Error Resume Next
+	If tblObj.RowCount > 0 Then
+		i=0
+		ReDim dataToReturn(i)
+		Do While(tblObj.ValidRow(i+1))
+			ReDim Preserve dataToReturn(i)
+			dataToReturn(i) = tblObj.GetCellData(CInt(i+1), Cstr(colName))
+			Print dataToReturn(i)
+			If Err.Description <> "" Then
+				Print colName & " Column not Found"
+				Exit Do
+			End If
+			i = i + 1
+		Loop
+	Else
+		Print "0 Records available"
+	End If
+	On Error Goto 0
+	If IsEmpty(dataToReturn(0)) Then
+		getSAPColumnDataByName = Null
+	Else
+		getSAPColumnDataByName = dataToReturn
+	End If
+    
+End Function
+
+
+Function SAPGetCellData(tObj, rowIndex, columnName)
+
+   If tObj.Exist(5) Then
+	   On Error Resume Next
+	   Err.Clear
+	   Dim cc
+	   cc = tObj.ColumnCount(1)
+	   If Err.Number <> 0 Then
+		   cc = tObj.ColumnCount
+	   End If
+		For i=1 To cc
+			If UCase(tObj.GetCellData(1, i)) = UCase(columnName) Then
+				SAPGetCellData = tObj.GetCellData(rowIndex, i)
+				Exit For
+			End If
+		Next
+	Else
+		Print tObj.GetROProperty("name") & " Table Object Does not exists"
+   End If
+
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPSwitchTableView
+'Description     			:  Function to swicth the default table view in a page
+'Parameters Used     :  viewName (Common values : "ALV Grid dislpay","ALV list","SE16 standard list")
+'Author							:  Lavneesh
+'Date Created			: Feb 1 2013
+'*****************************************************************************************************************************************************************************
+Function SAPSwitchTableView(sessionNumber, viewName)
+   Dim sessionObject, executeButtons
+	Set sessionObject=SAPGuiSession("micclass:=SAPGuiSession","index:=" & sessionNumber)
+	if(objectExists(sessionObject,"")) then	
+		On Error Resume Next
+		Reporter.Filter=rfDisableAll
+			sessionObject.SAPGuiMenubar("micclass:=SAPGuiMenubar","index:=0").Select "Settings;User Parameters..."
+			sessionObject.SAPGuiRadioButton("micclass:=SAPGuiRadioButton","attachedText:=" & viewName).set
+			Call SAPClickOnButtonWithToolTip(sessionNumber,"Adopt   \(Enter\)")
+		Reporter.Filter=rfEnableAll
+		On Error Goto 0
+	end if	
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPGetSystemTime
+'Description     			:  Function to note the SAP system time from the System menu bar
+'Parameters Used     :  
+'Author							:  Lavneesh
+'Date Created			: Feb 5 2013
+'*****************************************************************************************************************************************************************************
+Function SAPGetSystemTime(sessionNumber)
+	Dim sessionObject
+	Set sessionObject=SAPGuiSession("micclass:=SAPGuiSession","index:=" & sessionNumber)
+	if(objectExists(sessionObject,"")) then			
+		sessionObject.SAPGuiMenubar("micclass:=SAPGuiMenubar","index:=0").Select "System;Status..."
+		Wait 5
+		If SAPGuiSession("Session").SAPGuiWindow("text:=Express Information").Exist Then
+			Call SAPClickOnButtonWithToolTip(0,"Continue   \(Enter\)")
+		End If
+		SAPGetSystemTime=sessionObject.SAPGuiEdit("micclass:=SAPGuiEdit","attachedText:=System time").GetROProperty("value")
+		Wait 5
+		Call SAPClickOnButtonWithToolTip(sessionNumber,"Continue   \(Enter\)")	
+		Call logReport("Note the system time","System time noted","Time noted as " & SAPGetSystemTime,"PASS")
+	else
+		Call logReport("Note the system time from SAP session number "  & sessionNumber,"Time noted","Session not found","FAIL")
+	end if		
+End Function
+
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: SAPDownloadFile
+'Description     			:  Function to note to perofrm file download ffrom SAP interface to local 
+'Parameters Used     :  DialogBoxTitleName-Title text of the dialog box,FilePathWithName-Full path with name of the file to be saved 
+'Returns 						: Return the file path if saved successfully else return null
+'Author							:  Nayan
+'Date Created			: Feb 12 2013
+'**************************************************************************************************************************************************************
+Function SAPDownloadFile(DialogBoxTitleName, FileName)
+	Dim win,FilePathWithName, FileNameTextBox
+	Dim fso
+	Set fso=CreateObject("Scripting.FileSystemObject")
+	If fso.FileExists(Environment("SystemTempDir") & "\" & FileName) Then
+		call fso.DeleteFile(Environment("SystemTempDir") & "\" & FileName,true)
+	End If
+	Do while(fso.FileExists(Environment("SystemTempDir") & "\" & FileName))
+		wait 2
+		print "Waiting for " & FileName & "to be deleted from temp folder"
+	Loop
+	FilePathWithName=Environment("SystemTempDir") & "\" & FileName
+   Set win=verifyWindow(DialogBoxTitleName,true,Setting("DefaultTimeout")/1000)
+	if NOT(win is nothing) then 
+		Call logReport("Verify Dialog box with Title Text: " & win.getRoProperty("title") & " exists","Dialog box exists","Exists","PASS")
+      win.activate
+      set FileNameTextBox=win.WinEdit("regexpwndclass:=Edit")
+		Call PA(FileNameTextBox,"set",FilePathWithName,"FileName textbox")
+		wait 1
+		win.Type micReturn
+		Call logReport("Verify File Successfully downloaded","File Downloaded to Location: " & FilePathWithName,"File Downloaded Successfully","PASS")
+		SAPDownloadFile=FilePathWithName
+      else
+		Call logReport("Verify Dialog box with Title Text: " & DialogBoxTitleName & " exists","Dialog box exists","Do not exists","FAIL")
+		SAPDownloadFile=NULL
+	end if 
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: findJobAndVerifyStatus
+'Description     			:  Find (last) job based on the given criteria and verify its status
+'Parameters Used     :  
+'										:  
+'Author							:  Cardinal Automation Team(Lavneesh)
+'Date Created			:  24Jan 2012
+'*****************************************************************************************************************************************************************************
+Function findJobAndVerifyStatus(sessionNumber, jobName,userID, startDate, endDate,  jobExecutionTime,expectedJobStatus, jobExecutionTimeDeviationLimit)
+   Dim sessionObject
+	Set sessionObject=SAPGuiSession("micclass:=SAPGuiSession","index:=" & sessionNumber)
+	Dim waitingInActive	
+	if(objectExists(sessionObject,"")) then		
+		Dim pageObject
+		Set pageObject=sessionObject.SAPGuiWindow("text:=Simple Job Selection","program:=SAPLBTCH","index:=0")
+
+		Call PA(pageObject.SAPGuiEdit("attachedText:=Job name"),"Set",jobName,"Job Name field")
+		if(trim(userID)<>"") then
+			Call PA(pageObject.SAPGuiEdit("attachedText:=User name"),"Set",userID,"User ID field")
+		else
+			userID=pageObject.SAPGuiEdit("attachedText:=User name").GetROProperty("value")
+		end if
+		if(trim(startDate)<>"") then
+			Call PA(pageObject.SAPGuiEdit("name:=BTCH2170-FROM_DATE"),"Set",getDateWithLeading0(startDate),"Start Date field")
+		end if
+		if(trim(endDate)<>"") then
+			Call PA(pageObject.SAPGuiEdit("name:=BTCH2170-TO_DATE"),"Set",getDateWithLeading0(endDate),"End Date field")
+		end if
+		Call SAPClickOnButtonWithToolTip(sessionNumber,"Execute   \(F8\)")
+		wait 4
+
+		'Optimizing the width of the column with the Menu Settings - > Columns - > Optimize Width
+		If sessionObject.GetROProperty("systemname") = "SE2" Then
+			sessionObject.SAPGUIWindow("text:=Job Overview", "program:=SAPMSSY0","index:=0").SAPGuiMenubar("name:=mbar").Select "Settings;Columns;Optimize Width"
+		else
+			sessionObject.SAPGUIWindow("text:=Job Overview", "program:=SAPMSSY0","index:=0").SAPGuiMenubar("name:=mbar").Select "Settings;Columns;Optimize width"
+		End If
+		
+	
+		  Set pageObject=sessionObject.SAPGuiWindow("text:=Job Overview","program:=SAPMSSY0","index:=0") 
+		   if(objectExists(pageObject,"")) then
+		   'Remove
+		   Print true
+				Dim result, resultLabelObject
+				result=false		
+				Call SAPClickOnButtonWithToolTip(sessionNumber,"Refresh   \(F8\)")
+				wait 2				
+				pageObject.SendKey CTRL_PAGEUP						
+				wait 2
+				Dim startTimeLabel_X, statusLabel_X, usernameLabel_X
+				usernameLabel_X=pageObject.SAPGuiLabel("micclass:=SAPGuiLabel","content:=Job CreatedBy").GetROProperty("X")
+				'Remove
+				Print usernameLabel_X
+				startTimeLabel_X=pageObject.SAPGuiLabel("micclass:=SAPGuiLabel","content:=Start time").GetROProperty("X")
+				'Remove
+				Print startTimeLabel_X
+				statusLabel_X=pageObject.SAPGuiLabel("micclass:=SAPGuiLabel","content:=Status").GetROProperty("X")
+				'Remove
+				Print statusLabel_X
+				Dim matchingJobs, temp_Y, temp_startTime, finalJobs()
+				ReDim finalJobs(-1)
+				if(trim(jobExecutionTime)<>"" AND trim(jobExecutionTimeDeviationLimit)="") then
+					jobExecutionTimeDeviationLimit=0
+				end if
+
+
+
+				Do 			
+					waitingInActive=false
+					Dim tempMJ
+					if(trim(jobName)="*" AND trim(userID)<>"*") then
+						matchingJobs=getMatchingObjects(pageObject,"SAPGuiLabel",Array("content"),Array(userID))				
+						For tempMJ=1 to UBound(matchingJobs)					
+							ReDim Preserve finalJobs(UBound(finalJobs)+1)
+							Set finalJobs(UBound(finalJobs))=matchingJobs(tempMJ)					
+						Next
+					elseif(trim(jobName)<>"*" AND trim(userID)="*") then
+						matchingJobs=getMatchingObjects(pageObject,"SAPGuiLabel",Array("content"),Array(jobName))				
+						For tempMJ=1 to UBound(matchingJobs)					
+							ReDim Preserve finalJobs(UBound(finalJobs)+1)
+							Set finalJobs(UBound(finalJobs))=matchingJobs(tempMJ)					
+						Next
+					elseif(trim(jobName)<>"*" AND trim(userID)<>"*") then
+						jobName = Replace(jobName,"-","\-")
+						jobName = Replace(jobName,"+","\+")
+						jobName = Replace(jobName,"*","\*")
+						jobName = Replace(jobName,"(","\(")
+						jobName = Replace(jobName,")","\)")
+						matchingJobs=getMatchingObjects(pageObject,"SAPGuiLabel",Array("content"),Array(jobName))
+						'Remove
+						Print "Number of matching Jobs" & UBound(matchingJobs)
+						Dim tempUID
+						For tempMJ=1 to UBound(matchingJobs)
+							tempUID=pageObject.SAPGuiLabel("micclass:=SAPGuiLabel","x:=" & usernameLabel_X, "y:=" & matchingJobs(tempMJ).getROProperty("y")).getROProperty("content")
+							if(UCase(tempUID)=UCase(userID)) then
+								ReDim Preserve finalJobs(UBound(finalJobs)+1)
+								Set finalJobs(UBound(finalJobs))=matchingJobs(tempMJ)
+							end if
+						Next
+					else
+						Call logReport("Cannot find the required Job in the Job Overview window because of insufficient data.","","Job name = * , User Name = *","FAIL")
+						ExitComponentIteration
+					end if
+					Dim finalJob
+					Set finalJob=Nothing
+					if(UBound(finalJobs)>=0) then
+						if(trim(jobExecutionTime)="") then
+							Set finalJob=finalJobs(UBound(finalJobs))
+						else
+							Dim fj, tempST
+							startTimeLabel_X=pageObject.SAPGuiLabel("micclass:=SAPGuiLabel","content:=Start time").GetROProperty("X")
+							'Remove
+							Print startTimeLabel_X
+							For each fj in finalJobs
+								tempST=pageObject.SAPGuiLabel("micclass:=SAPGuiLabel","x:=" & startTimeLabel_X, "y:=" & fj.getROProperty("y")).getROProperty("content")
+								print "time diff" & abs(dateDiff("n",cDate(jobExecutionTime),cDate(tempST)))
+								print "time diff limit  " & jobExecutionTimeDeviationLimit
+								if(cint(abs(dateDiff("n",cDate(jobExecutionTime),cDate(tempST))))<=cint(jobExecutionTimeDeviationLimit)) then
+									Set finalJob=fj
+									Exit For
+								end if
+							Next
+						end if
+			
+						if(NOT (finalJob is Nothing)) then
+								Dim tempStatus
+								tempStatus=UCase(pageObject.SAPGuiLabel("micclass:=SAPGuiLabel","x:=" & statusLabel_X, "y:=" & finalJob.getROProperty("y")).getROProperty("content"))
+								finalJob.highlight
+								if(tempStatus="ACTIVE" OR tempStatus="RELEASED") then
+									Call SAPClickOnButtonWithToolTip(sessionNumber,"Refresh   \(F8\)")
+									wait 5
+									pageObject.SendKey PAGEUP
+									waitingInActive=true
+									'Optimizing the width of the column with the Menu Settings - > Columns - > Optimize Width
+									If sessionObject.GetROProperty("systemname") = "SE2" Then
+										sessionObject.SAPGUIWindow("text:=Job Overview", "program:=SAPMSSY0","index:=0").SAPGuiMenubar("name:=mbar").Select "Settings;Columns;Optimize Width"
+									else
+										sessionObject.SAPGUIWindow("text:=Job Overview", "program:=SAPMSSY0","index:=0").SAPGuiMenubar("name:=mbar").Select "Settings;Columns;Optimize width"
+									End If
+								elseif(tempStatus=UCase(expectedJobStatus)) then
+									result=true
+									finalJob.setFocus
+									Set resultLabelObject=finalJob
+									Exit Do
+								else
+									result=false
+									Exit Do
+								end if						
+						end if	
+					end if				
+					if((NOT waitingInActive) AND objectExists(pageObject.SAPGuiLabel("content:=Summary","index:=0"),1)) then
+						Exit Do
+					end if
+					pageObject.SendKey PAGEDOWN
+					wait 10
+				Loop While(true)
+
+
+				if(result) then
+					Call logReport("Find a job in the Job Overview window with name : """ & jobName &""", User Name :""" & userID & """, Start time : """ & jobExecutionTime & """ and Status : """ & expectedJobStatus & """","Job found","Job found and verified","PASS")			
+				else
+					Call logReport("Find a job in the Job Overview window with name : """ & jobName &""", User Name :""" & userID & """, Start time : """ & jobExecutionTime & """ and Status : """ & expectedJobStatus & """","Job found","Job not found","FAIL")
+				end if
+			else
+				Call logReport("Find a job in the Job Overview window with name : """ & jobName &""", User Name :""" & userID & """, Start time : """ & jobExecutionTime & """ and Status : """ & expectedJobStatus & """","Job found","NO JOB FOUND","FAIL")
+				Set findJobAndVerifyStatus=Nothing
+			end if
+	else
+		Call logReport("Find a job in the Job Overview window with name : """ & jobName &""", User Name :""" & userID & """, Start time : """ & jobExecutionTime & """ and Status : """ & expectedJobStatus & """","Job found","Job overview window not found","FAIL")
+		Set findJobAndVerifyStatus=Nothing
+	end if
+
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: verifyField
+'Description     			: To verify a field present in the tree segment and its value
+'Parameters Used     : Field Name
+'Author							:  Cardinal Automation Team (Samrat)
+'Date Created			: 05/24/2013
+'*****************************************************************************************************************************************************************************			
+
+Function verifyField(fieldName)
+   Dim rowOfTheFiled
+	Dim objTable, fieldValue
+	Set objTable = SAPGuiSession("Session").SAPGuiWindow("micclass:=SAPGuiWindow").SAPGuiTable("micclass:=SAPGuiTable")
+	On Error Resume Next
+	rowOfTheFiled = objTable.FindRowByCellContent("Field name", fieldName)
+	Call objTable.SelectCell (rowOfTheFiled, "Field name")
+   	If Err.Number <> 0 Then
+		Call LogReport("Verifying The Existance of the field: "&fieldName, "Field should exist (If it is not optional)", "Field does not exist (It can be an optional field)", "WARNING")
+	Else		
+		fieldValue = objTable.GetCellData(rowOfTheFiled, "Field contents")
+		If fieldValue = Null or fieldValue = "" or fieldValue = " " Then
+			Call LogReport("Checking the value against "&fieldName, "Some value should exist", "Value exists as: "&fieldValue, "FAIL")
+		Else
+			Call LogReport("Checking the value against "&fieldName, "Some value should exist", "Value exist as: "&fieldValue, "PASS")
+		End If
+	End If
+	On Error GoTo 0
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    	: clickAndActivateTreeNodeLink()
+'Description     			: Enter the tree object and link text , It will select the node
+'Parameters Used    : SAPGUITreeObject, linkText
+'Author							: Sushil Sharma
+'Date Created			: 21/02/2013
+'*****************************************************************************************************************************************************************************						
+
+Function clickAndActivateTreeNodeLink(SAPGUITreeObject, linkText)
+
+	Dim CurrentNodeIndex, nodeKeys, currNodeKey, selectedNodePath, found
+	
+	Set nodeKeys = SAPGUITreeObject.Object.GetAllNodeKeys
+	found = False
+
+	CurrentNodeIndex = 0
+	Do while(true)
+		currNodeKey = nodeKeys(CurrentNodeIndex)
+		if(CurrentNodeIndex=nodeKeys.count-1) then
+			Exit Do
+		end if
+		
+		selectedNodePath = SAPGUITreeObject.Object.GetNodePathByKey(currNodeKey)
+		selectedNodePath = "#" & Replace(selectedNodePath, "\", ";#")
+		Call SAPGUITreeObject.selectItem(selectedNodePath, "#1")
+		'Call SAPGUITreeObject.selectNode(selectedNodePath)
+		If SAPGUITreeObject.GetROProperty("selecteditem") = linkText Then
+			Call logReport("Click on Tree Node Link", "Click on Node with Link Text as - " & linkText, "Clicked successfully", "Pass")
+			SAPGUITreeObject.ActivateNode(selectedNodePath)
+			Call LogReport("Taking Screenshot after Double Clicking on the page Icon of Link: "& linkText, "", "", "PASS")
+			found = True
+			Exit Do
+		End If		
+		If SAPGUITreeObject.Object.IsFolder(currNodeKey) Then
+			SAPGUITreeObject.Object.ExpandNode(currNodeKey)			
+			Set nodeKeys = SAPGUITreeObject.Object.GetAllNodeKeys
+		End If
+		CurrentNodeIndex=CurrentNodeIndex+1
+	Loop
+		
+	
+	If Not found Then
+		Call logReport("Click Tree Node Link", "Click on Node with Link Text as - " & linkText, "Link not Found", "Fail")
+		clickAndActivateTreeNodeLink = -1
+	else
+		clickAndActivateTreeNodeLink = currNodeKey
+	End If
+		
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    	: clickTreeNodeLink()
+'Description     			: Enter the tree object and link text , It will select the node
+'Parameters Used    : SAPGUITreeObject, linkText
+'Author							: Sushil Sharma
+'Date Created			: 21/02/2013
+'*****************************************************************************************************************************************************************************						
+
+Function clickTreeNodeLink(SAPGUITreeObject, linkText)
+
+	Dim CurrentNodeIndex, nodeKeys, currNodeKey, selectedNodePath, found
+	
+	Set nodeKeys = SAPGUITreeObject.Object.GetAllNodeKeys
+	found = False
+
+	CurrentNodeIndex = 0
+	Do while(true)
+		currNodeKey = nodeKeys(CurrentNodeIndex)
+		if(CurrentNodeIndex=nodeKeys.count-1) then
+			Exit Do
+		end if
+		
+		selectedNodePath = SAPGUITreeObject.Object.GetNodePathByKey(currNodeKey)
+		selectedNodePath = "#" & Replace(selectedNodePath, "\", ";#")
+		Call SAPGUITreeObject.selectItem(selectedNodePath, "#1")
+		'Call SAPGUITreeObject.selectNode(selectedNodePath)
+		If SAPGUITreeObject.GetROProperty("selecteditem") = linkText Then
+			Call SAPGUITreeObject.ClickLink(selectedNodePath, linkText)			
+			Call logReport("Click on Tree Node Link", "Click on Node with Link Text as - " & linkText, "Clicked successfully", "Pass")
+            found = True
+			Exit Do
+		End If		
+		If SAPGUITreeObject.Object.IsFolder(currNodeKey) Then
+			SAPGUITreeObject.Object.ExpandNode(currNodeKey)			
+			Set nodeKeys = SAPGUITreeObject.Object.GetAllNodeKeys
+		End If
+		CurrentNodeIndex=CurrentNodeIndex+1
+	Loop
+		
+	
+	If Not found Then
+		Call logReport("Click Tree Node Link", "Click on Node with Link Text as - " & linkText, "Link not Found", "Fail")
+	End If
+		clickTreeNodeLink = currNodeKey
+End Function
+
+
+'************************************************************************************************************************************************************************
+'Function Name    	: XD02_Execute_Customer_Change
+'Description     	: Function to enter customer number and sales order and click on enter 
+'Parameters Used     : lCustomer,lCompanyCode,lSalesOrg,lDistributionChannel,lDivision,lClickButton
+'Author		:  Cardinal Automation Team (Neelanjana Mandal)
+'Date Created	: 06/10/2014
+'*****************************************************************************************************************************************************************************
+Function XD02_Execute_Customer_Change(lCustomer,lCompanyCode,lSalesOrg,lDistributionChannel,lDivision,lSessionNumber,lToolTipOfButtonToClick)
+	Call SAPExecuteTCode("1","/nXD02")
+	Call logHeader("Customer Change Initial Screen")
+	If SAPGuiSession("Session").SAPGuiWindow("CustomerChangeInitialScreen").Exist Then
+		Call logReport("Verify - Customer Change Initial Screen displayed","should be displayed","is displayed","PASS")
+	Else
+		Call logReport("Verify - Customer Change Initial Screen displayed","should be displayed","is not displayed","FAIL")
+	End If
+	If Not isNull(lCustomer) Then
+		Call PA(SAPGuiSession("Session").SAPGuiWindow("CustomerChangeInitialScreen").SAPGuiEdit("Customer"),"Set",lCustomer,"Customer Number")
+	End If
+	If Not isNull(lCompanyCode) Then
+		Call PA(SAPGuiSession("Session").SAPGuiWindow("CustomerChangeInitialScreen").SAPGuiEdit("CompanyCode"),"Set",lCompanyCode,"Company code")
+	End If
+	If Not isNull(lSalesOrg) Then
+		Call PA(SAPGuiSession("Session").SAPGuiWindow("CustomerChangeInitialScreen").SAPGuiEdit("SalesOrganization"),"Set",lSalesOrg,"Sales Organization")
+	End If
+	If Not isNull(lDistributionChannel) Then
+		Call PA(SAPGuiSession("Session").SAPGuiWindow("CustomerChangeInitialScreen").SAPGuiEdit("DistributionChannel"),"Set",lDistributionChannel,"Distribution Channel")
+	End If
+	If Not isNull(lDivision) Then
+		Call PA(SAPGuiSession("Session").SAPGuiWindow("CustomerChangeInitialScreen").SAPGuiEdit("Division"),"Set",lDivision,"Division")
+	End If
+	If Not isNull(lSessionNumber) AND Not isNull(lToolTipOfButtonToClick) Then
+		Call SAPClickOnButtonWithToolTip(lSessionNumber,lToolTipOfButtonToClick)
+	End if 
+'	If Not isNull(lClickButton) Then
+'		If Ucase(Trim(lClickButton)) = "ENTER" Then
+'			Call SAPClickOnButtonWithToolTip("1",".*Continue.*")
+'		ElseIf Ucase(Trim(lClickButton)) = "CONTINUE" Then
+'			Call SAPClickOnButtonWithToolTip("1",".*Continue.*")
+'		ElseIf Ucase(Trim(lClickButton)) = "CUSTOMER'S SALES AREA" Then
+'			Call SAPClickOnButtonWithToolTip("1",".*Customer's sales areas.*")
+'		ElseIf Ucase(Trim(lClickButton)) = "ALL SALES AREA" Then
+'			Call SAPClickOnButtonWithToolTip("1",".*All sales areas.*") 
+'		End If
+'	End If
+End Function
+
+
+
+'************************************************************************************************************************************************************************
+'Function Name    	: FD32_Execute_Customer_Credit_management_change
+'Description     	: Function to set the value and Enter
+'Parameters Used     : customerNumber, creditControlArea, overviewCheckBox, addressCheckBox, centralDataCheckBox, statusCheckBox, paymentHistoryCheckBox,sessionNumber, toolTipofButtonToClick
+'Author		:  Cardinal Automation Team (Anup)
+'Date Created	: 10th June 2014
+'************************************************************************************************************************************************************************
+
+Function FD32_Execute_Customer_Credit_management_change(customerNumber, creditControlArea, overviewCheckBox, addressCheckBox, centralDataCheckBox, statusCheckBox, paymentHistoryCheckBox,sessionNumber, toolTipofButtonToClick)
+
+	Call SAPExecuteTCode(0,"/nFD32")
+
+	If SAPGuiSession("Session").SAPGuiWindow("pageCustomerCreditManagement").Exist Then
+		Call logReport("Verfication of Customer Credit Management Change: Initial Screen Page","Customer Credit Management Change: Initial Screen - page should be opened","Customer Credit Management Change: Initial Screen - page is opened","PASS")
+		If Not isNull(customerNumber) Then
+			Call PA(SAPGuiSession("Session").SAPGuiWindow("pageCustomerCreditManagement").SAPGuiEdit("txtCustomer"),"Set",customerNumber,"Customer Number Edit Box")
+		End If
+		If Not isNull(creditControlArea) Then
+			Call PA(SAPGuiSession("Session").SAPGuiWindow("pageCustomerCreditManagement").SAPGuiEdit("txtCreditControlArea"),"Set", creditControlArea,"Credit Control Area Edit Box")
+		End If
+		If Not isNull(overviewCheckBox) Then
+			Call PA(SAPGuiSession("Session").SAPGuiWindow("pageCustomerCreditManagement").SAPGuiCheckBox("chkboxOverview"),"Set", overviewCheckBox,"Overview Check Box")
+		End If
+		If Not isNull(addressCheckBox) Then
+			Call PA(SAPGuiSession("Session").SAPGuiWindow("pageCustomerCreditManagement").SAPGuiCheckBox("chkboxAddress"),"Set",addressCheckBox,"Address Check Box")
+		End If
+		If Not isNull(centralDataCheckBox) Then
+			Call PA(SAPGuiSession("Session").SAPGuiWindow("pageCustomerCreditManagement").SAPGuiCheckBox("chkboxCentralData"),"Set",centralDataCheckBox,"Central Data Check Box")
+		End If
+		If Not isNull(statusCheckBox) Then
+			Call PA(SAPGuiSession("Session").SAPGuiWindow("pageCustomerCreditManagement").SAPGuiCheckBox("chkboxStatus"),"Set", statusCheckBox,"Status Check Box")
+		End If
+		If Not isNull(paymentHistoryCheckBox) Then
+			Call PA(SAPGuiSession("Session").SAPGuiWindow("pageCustomerCreditManagement").SAPGuiCheckBox("chkboxPaymentHistory"),"Set",paymentHistoryCheckBox,"Payment History Check Box")
+		End If
+	
+		If Not isNull(sessionNumber) AND Not isNull(toolTipofButtonToClick) Then
+			Call SAPClickOnButtonWithToolTip(sessionNumber, toolTipofButtonToClick)
+		End If
+	Else
+		Call logReport("Verfication of Customer Credit Management Change: Initial Screen Page","Customer Credit Management Change: Initial Screen - page should be opened","Customer Credit Management Change: Initial Screen - page is not opened","FAIL")
+	End If
+
+End Function
+
+
+
+
+
+
+
+
+'''***********************************************************************************************
+
+
+
+'SAP China Penguine Common Function..
+
+
+
+'************************************************************************************************************************************************************************
+'Function Name    	: getInput
+'Description     	: Function to get the input prameter value.
+'Parameters Used     :inputParameterName 
+'Author		:  Cardinal Automation Team (kshanaprava)
+'Date Created	: 10th July 2014
+'************************************************************************************************************************************************************************
+
+Function getInput(inputParameterName)
+	Dim strFileName,inputParameterVal
+	strFileName = getTestSetPath & ".xlsx"
+	inputParameterVal = readData(strFileName,"IP",inputParameterName)
+	Print inputParameterName & "-" & inputParameterVal
+	getInput = inputParameterVal
+End Function
+
+'************************************************************************************************************************************************************************
+'Function Name    	: storeOutput
+'Description     	: Function to store the output.
+'Parameters Used     :outputParameterName,outputParameterVal 
+'Author		:  Cardinal Automation Team (kshanaprava)
+'Date Created	: 10th July 2014
+'*********************************************************************************************************************************************************************
+Function storeOutput(outputParameterName,outputParameterVal)
+	Dim strFileName
+	strFileName = getTestSetPath & ".xlsx"
+	Call writeData(strFileName,"OP",outputParameterName,outputParameterVal)
+End Function
+'************************************************************************************************************************************************************************
+'Function Name    	: linkOutput
+'Description     	: Function to link the output.
+'Parameters Used     :outputParameterName,outputParameterVal 
+'Author		:  Cardinal Automation Team (kshanaprava)
+'Date Created	: 10th July 2014
+'*********************************************************************************************************************************
+Function linkOutput(outputParameterName)
+	Dim strFileName,outputParameterVal
+	strFileName = getTestSetPath & ".xlsx"
+	outputParameterVal = readData(strFileName,"OP",outputParameterName)
+	Print outputParameterName & "-" & outputParameterVal
+	linkOutput = outputParameterVal
+End Function
+
+'************************************************************************************************************************************************************************
+'Function Name    	: getTestSetPath
+'Description     	: get the test se path
+'Parameters Used     :
+'Author		:  Cardinal Automation Team (kshanaprava)
+'Date Created	: 10th July 2014
+'*********************************************************************************************************************************
+Function getTestSetPath()
+	Dim strTestSetName
+	Set strTestSetName = QCUtil.CurrentTestSet
+	Print "Cuurent Run" & strTestSetName.name
+	getTestSetPath = strTestSetName.name
+End Function
+
+
+
+
+'ROW WISE DATA READ AND WRITE
+'************************************************************************************************************************************************************************
+'Function Name    	: readData
+'Description     	: Function to read the data from the excel.
+'Parameters Used     :strExcelWorkBookName,strSheetNameOrintSheetNum,strParameterNameToGetData 
+'Author		:  Cardinal Automation Team (Ashish sahoo)
+'Date Created	: 7th July 2014
+'********************************************************************************************************************************
+
+Function readData(strExcelWorkBookName,strSheetNameOrintSheetNum,strParameterNameToGetData)
+    On error resume next
+    Dim objExcel
+    Dim objWorkbook
+    Dim objExcelWorkSheet
+    Dim strfilePath
+    Dim strGetDataValue
+    Dim intTotalUsedRows
+    Dim intCounter
+    Dim oFile,sheetValue,blnFlag
+    getDataValue=""
+    blnFlag=False
+    Set oFile=CreateObject("Scripting.FileSystemObject") 
+    strfilePath=Environment.Value("SystemTempDir")&"\"&strExcelWorkBookName
+    If oFile.fileExists(strfilePath) Then
+        Set objExcel = CreateObject("Excel.Application")
+        Set objWorkbook = objExcel.WorkBooks.Open(strfilePath)
+        If isNumeric(strSheetNameOrintSheetNum) Then
+            sheetValue=strSheetNameOrintSheetNum
+        Else
+            sheetValue=strSheetNameOrintSheetNum
+        End If
+        Err.clear
+        Set objExcelWorkSheet = objWorkbook.Worksheets(sheetValue)
+        If Err.Number <>0 Then
+            Print "FAIL:Enter valid Sheet Name"&strSheetNameOrintSheetNum
+        Else
+            intTotalUsedRows=objExcelWorkSheet.usedRange.rows.Count
+            For intCounter=1 To intTotalUsedRows
+                If Trim(Ucase(objExcelWorkSheet.Cells(intCounter,1)))=Trim(Ucase(strParameterNameToGetData)) Then
+                    blnFlag=True
+                    Exit for
+                End If
+            Next
+            If (blnFlag) Then
+				strGetDataValue=objExcelWorkSheet.cells(intCounter,2)
+            Else
+                Print"FAIL:Enter valid Parameter name :"&strParameterNameToGetData
+            End If
+        Err.clear
+        End If
+		objExcel.ActiveWorkbook.Close
+		Set objExcel=Nothing
+		Set objWorkbook=Nothing
+		Set objExcelWorkSheet=Nothing
+    Else
+        Print "FAIL:File Not Found at the location "&strfilePath
+    End If
+    readData=strGetDataValue  
+End Function
+
+'************************************************************************************************************************************************************************
+'Function Name    	: writeData
+'Description     	: Function to write the data from the excel.
+'Parameters Used     :strExcelWorkBookName,strSheetNameOrintSheetNum,strPrameterNameToFindRow,strDataToWrite
+'Author		:  Cardinal Automation Team (Ashish sahoo)
+'Date Created	: 7th July 2014
+'********************************************************************************************************************************
+Function writeData(strExcelWorkBookName,strSheetNameOrintSheetNum,strPrameterNameToFindRow,strDataToWrite)
+    On error resume next
+    Dim objExcel
+    Dim objWorkbook
+    Dim objExcelWorkSheet
+    Dim strfilePath
+    Dim strGetDataValue
+    Dim intTotalUsedRows
+    Dim intCounter
+    Dim oFile,sheetValue,blnFlag
+    getDataValue=""
+    blnFlag=False
+    Set oFile=CreateObject("Scripting.FileSystemObject") 
+    strfilePath=Environment.Value("SystemTempDir")&"\"&strExcelWorkBookName
+    If oFile.fileExists(strfilePath) Then
+        Set objExcel = CreateObject("Excel.Application")
+        Set objWorkbook = objExcel.WorkBooks.Open(strfilePath)
+        If isNumeric(strSheetNameOrintSheetNum) Then
+            sheetValue=strSheetNameOrintSheetNum
+        Else
+            sheetValue=strSheetNameOrintSheetNum
+        End If
+        Err.clear
+        Set objExcelWorkSheet = objWorkbook.Worksheets(sheetValue)
+        If Err.Number <>0 Then
+            Print "FAIL:Enter valid Sheet Name "&strSheetNameOrintSheetNum
+        Else
+            intTotalUsedRows=objExcelWorkSheet.usedRange.Rows.Count
+            For intCounter=1 To intTotalUsedRows
+                If Trim(Ucase(objExcelWorkSheet.Cells(intCounter,1)))=Trim(Ucase(strPrameterNameToFindRow)) Then
+                    blnFlag=True
+                    Exit for
+                End If
+            Next
+            If (blnFlag) Then
+                objExcelWorkSheet.cells(intCounter,2).value = trim(strDataToWrite)
+            Else
+                Print "FAIL:Enter valid Parameter Name "&strPrameterNameToFindRow
+            End If
+        End If
+        objExcel.ActiveWorkbook.Save
+		objExcel.ActiveWorkbook.Close
+		Set objExcel=Nothing
+		Set objWorkbook=Nothing
+		Set objExcelWorkSheet=Nothing 
+    Else
+        Print "FAIL:File Not Found at the location "&strfilePath
+    End If     
+End Function
+
+
+
+'*************************************************************************************************************************
+'Function Name    		: tableTreeNavigateAndSelectSpecificMenu
+'Description     		: navigate to a specific node  and select the node 
+'Parameters Used     	: arrMenuList as array of menu list 
+'Author				:  Cardinal Automation Team (Koushik)
+'Date Created			: 05/20/2015
+'**************************************************************************************************************************
+Function tableTreeNavigateAndSelectSpecificMenu(SAPGUITreeObject, arrMenuList)
+
+	Dim intIterator
+	
+	For intIterator = 0 To Ubound(arrMenuList)
+		If intIterator<>Ubound(arrMenuList) Then
+			Call SAPGUITree_ColumnTree_ExpandNode(SAPGUITreeObject,arrMenuList(intIterator))
+		Else
+			Call SAPGUITree_ColumnTree_NavigateToNode(SAPGUITreeObject,arrMenuList(intIterator))
+		End If 		
+	Next
+	
+	Set SAPGUITreeObject=Nothing
+	
+End Function
+
+
+'***************************************************************************************************************
+
+
+
+
+'************************************************************************************************************************************************************************
+
+
+
+
+
+'COLUMN WISE DATA READ WRITE 
+''************************************************************************************************************************************************************************
+''Function Name    	: readData
+''Description     	: Function to read the data from the excel.
+''Parameters Used     :strExcelWorkBookName,strSheetNameOrintSheetNum,strColumnNameToGetData 
+''Author		:  Cardinal Automation Team (Ashish sahoo)
+''Date Created	: 7th July 2014
+''********************************************************************************************************************************
+'Function readData(strExcelWorkBookName,strSheetNameOrintSheetNum,strColumnNameToGetData)
+'    On error resume next
+'    Dim objExcel
+'    Dim objWorkbook
+'    Dim objExcelWorkSheet
+'    Dim strfilePath
+'    Dim strGetDataValue
+'    Dim intTotalUsedCoulmns
+'    Dim intCounter
+'    Dim oFile,sheetValue,blnFlag
+'    getDataValue=""
+'    blnFlag=False
+'    Set oFile=CreateObject("Scripting.FileSystemObject") 
+'    strfilePath=Environment.Value("SystemTempDir")&"\"&strExcelWorkBookName
+'    If oFile.fileExists(strfilePath) Then
+'        Set objExcel = CreateObject("Excel.Application")
+'        Set objWorkbook = objExcel.WorkBooks.Open(strfilePath)
+'        If isNumeric(strSheetNameOrintSheetNum) Then
+'            sheetValue=strSheetNameOrintSheetNum
+'        Else
+'            sheetValue=strSheetNameOrintSheetNum
+'        End If
+'        Err.clear
+'        Set objExcelWorkSheet = objWorkbook.Worksheets(sheetValue)
+'        If Err.Number <>0 Then
+'            Print "FAIL:Enter valid Sheet Name"&strSheetNameOrintSheetNum
+'        Else
+'            intTotalUsedCoulmns=objExcelWorkSheet.usedRange.Columns.Count
+'            For intCounter=1 To intTotalUsedCoulmns
+'                If Trim(Ucase(objExcelWorkSheet.Cells(1,intCounter)))=Trim(Ucase(strColumnNameToGetData)) Then
+'                    blnFlag=True
+'                    Exit for
+'                End If
+'            Next
+'            If (blnFlag) Then
+'                strGetDataValue=objExcelWorkSheet.cells(2,intCounter)
+'            Else
+'                Print"FAIL:Enter valid column name "&strColumnNameToGetData
+'            End If
+'        Err.clear
+'        End If
+'        objExcel.ActiveWorkbook.Close
+'	    Set objExcel=Nothing
+'	    Set objWorkbook=Nothing
+'	    Set objExcelWorkSheet=Nothing
+'    Else
+'        Print "FAIL:File Not Found at the location "&strfilePath
+'    End If
+'    readData=strGetDataValue    
+'End Function
+'
+'
+''************************************************************************************************************************************************************************
+''Function Name    	: writeData
+''Description     	: Function to write the data from the excel.
+''Parameters Used     :strExcelWorkBookName,strSheetNameOrintSheetNum,strColumnNameToWriteData,strDataToWrite
+''Author		:  Cardinal Automation Team (Ashish sahoo)
+''Date Created	: 7th July 2014
+''********************************************************************************************************************************
+'Function writeData(strExcelWorkBookName,strSheetNameOrintSheetNum,strColumnNameToWriteData,strDataToWrite)
+'    On error resume next
+'    Dim objExcel
+'    Dim objWorkbook
+'    Dim objExcelWorkSheet
+'    Dim strfilePath
+'    Dim strGetDataValue
+'    Dim intTotalUsedCoulmns
+'    Dim intCounter
+'    Dim oFile,sheetValue,blnFlag
+'    getDataValue=""
+'    blnFlag=False
+'    Set oFile=CreateObject("Scripting.FileSystemObject") 
+'    strfilePath=Environment.Value("SystemTempDir")&"\"&strExcelWorkBookName
+'    If oFile.fileExists(strfilePath) Then
+'        Set objExcel = CreateObject("Excel.Application")
+'        Set objWorkbook = objExcel.WorkBooks.Open(strfilePath)
+'        If isNumeric(strSheetNameOrintSheetNum) Then
+'            sheetValue=strSheetNameOrintSheetNum
+'        Else
+'            sheetValue=strSheetNameOrintSheetNum
+'        End If
+'        Err.clear
+'        Set objExcelWorkSheet = objWorkbook.Worksheets(sheetValue)
+'        If Err.Number <>0 Then
+'            Print "FAIL:Enter valid Sheet Name "&strSheetNameOrintSheetNum
+'        Else
+'            intTotalUsedCoulmns=objExcelWorkSheet.usedRange.Columns.Count
+'            For intCounter=1 To intTotalUsedCoulmns
+'                If Trim(Ucase(objExcelWorkSheet.Cells(1,intCounter)))=Trim(Ucase(strColumnNameToWriteData)) Then
+'                    blnFlag=True
+'                    Exit for
+'                End If
+'            Next
+'            If (blnFlag) Then
+'                objExcelWorkSheet.cells(2,intCounter).value = trim(strDataToWrite)
+'            Else
+'                Print "FAIL:Enter valid column name "&strColumnNameToWriteData
+'            End If
+'        End If
+'        objExcel.ActiveWorkbook.Save
+'	    objExcel.ActiveWorkbook.Close
+'	    Set objExcel=Nothing
+'	    Set objWorkbook=Nothing
+'	    Set objExcelWorkSheet=Nothing 
+'    Else
+'        Print "FAIL:File Not Found at the location "&strfilePath
+'    End If
+'       
+'End Function
+''******************************************************************************************************************************************************************************

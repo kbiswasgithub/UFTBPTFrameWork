@@ -1,0 +1,4 @@
+attachment should be in Test plan master folder
+carh.jpg
+report.html
+Testdata.xml

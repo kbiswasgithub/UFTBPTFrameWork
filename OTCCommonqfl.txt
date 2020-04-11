@@ -1,0 +1,69 @@
+'Global Objects, Variables 
+Dim sessionObj
+Set sessionObj =  SAPGuiSession("id:=\/app\/con\[0\]\/ses\[0\]")
+Dim windowObj, windowObjHeaderData
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: VA01_CreateSalesOrder_InitialScreen
+'Description     			:  Function to enter data in the initial screen fo VA01
+'Parameters Used     :  order type, salesOrg, distChannel, div
+'										:  
+'Author							:  Cardinal Automation Team(Shipra)
+'Date Created			:  22 Aug 2013
+'*****************************************************************************************************************************************************************************
+Function VA01_CreateSalesOrder_InitialScreen(orderType, salesOrg, distChannel, div)
+	Call SAPExecuteTCode(0, "/nva01")
+	Set windowObj = sessionObj.ChildObjects(SAPGuiWindow("text:=Create Sales Order\: Initial Screen"))(0)
+	Call PA(windowObj.SAPGuiEdit("attachedtext:=Order Type", "Index:=0"), "set", orderType, "")
+	Call PA(windowObj.SAPGuiEdit("attachedtext:=Sales Organization", "Index:=0"), "set", salesOrg, "")
+	Call PA(windowObj.SAPGuiEdit("attachedtext:=Distribution Channel", "Index:=0"), "set", distChannel, "")
+	Call PA(windowObj.SAPGuiEdit("attachedtext:=Division", "Index:=0"), "set", div, "")
+	Call SAPClickOnButtonWithToolTip(0, "Enter")
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: VA01_HeaderDetails
+'Description     			:  Function to enter data in the header section of  Create Standard Order screen
+'Parameters Used     :  soldTo, shipTo, PONumber, POType
+'										:  
+'Author							:  Cardinal Automation Team(Shipra)
+'Date Created			:  22 Aug 2013
+'*****************************************************************************************************************************************************************************
+Function VA01_HeaderDetails(soldTo, shipTo, PONumber, POType)
+   Set windowObj = sessionObj.ChildObjects(SAPGuiWindow("text:=Create Standard Order\: Overview"))(0)
+   Call PA(windowObj.SAPGuiEdit("attachedtext:=Sold-To Party", "Index:=0"), "set", soldTo, "")
+	Call PA(windowObj.SAPGuiEdit("attachedtext:=Ship-To Party", "Index:=0"), "set", shipTo, "")
+	Call PA(windowObj.SAPGuiEdit("attachedtext:=PO Number", "Index:=0"), "set",PONumber , "")
+	Call SAPClickOnButtonWithToolTip(0, "Display doc\. header details")
+	'Call SAPClickOnButtonWithToolTip(0, "Continue   \(Enter\)")
+	Set windowObjHeaderData = sessionObj.ChildObjects(SAPGuiWindow("text:=Create Standard Order\: Header Data"))(0)
+	windowObjHeaderData.SAPGuiTabStrip("id:=.*TAXI_TABSTRIP_HEAD.*", "index:=0").select "Order Data"
+	Call PA(windowObjHeaderData.SAPGuiEdit("attachedtext:=Purchase order type","index:=0"), "Set", POType, "")
+	Call SAPClickOnButtonWithToolTip(0, "Back   \(F3\)")
+End Function
+
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: getDeliveryDate(rowNumber, allItemsTable, scheduleLinesTable)
+'Description     			:  Function to get the delivery date for a particular product.
+'Parameters Used     :  itemNumber,allItemsTable, scheduleLinesTable
+'										:  
+'Author							:  Cardinal Automation Team(Shipra)
+'Date Created			:  20 Nov 2013
+'*****************************************************************************************************************************************************************************
+Function getDeliveryDate(rowNumber, allItemsTable, scheduleLinesTable)
+  If allItemsTable.Exist Then
+	  allItemsTable.SelectRow(rowNumber)
+	  Call SAPClickOnButtonWithToolTip(0, "Schedule lines for item")
+	  If scheduleLinesTable.Exist Then
+			If scheduleLinesTable.GetCellData(1, "Confirmed Qty")<>0 Then
+				getDeliveryDate = scheduleLinesTable.GetCellData(1, "Delivery Date")
+			else
+				getDeliveryDate = scheduleLinesTable.GetCellData(2, "Delivery Date")
+			End If 
+			Call SAPClickOnButtonWithToolTip(0, "Back   \(F3\)")
+	  End If
+  End If
+End Function

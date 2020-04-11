@@ -1,0 +1,319 @@
+<html>
+<head>
+<script>
+//Information variables
+var testName, startTime, endTime, systemName, noOfSteps, testResult, noOfFailures, noOfWarnings, executionProgress, executionDuration;
+//Location variables
+var resourcesFolderName, xmlReportName;
+//XML Tag variables
+var xmlRootTag, xmlStepsTag, xmlStepTag, xmlStepNumberTag, xmlStepDescTag, xmlStepERTag, xmlStepARTag, xmlStepResultTag, xmlStepAtmtTag, xmlStepAtmtNameTag, xmlStepAtmtPathTag, xmlHeaderTag, xmlHeaderDescTag, xmlStartTimeTag, xmlEndTimeTag;
+//XML Atribute variables
+var xmlTestNameAttribute, xmlSystemNameAttribute, xmlExecutionProgressAttribute
+
+var cardinalHealthLogoFileName="CardinalHealth.jpg"
+function initialize() {		
+	resourcesFolderName="R"
+	xmlReportName="Report.xml";
+	
+	
+	xmlRootTag="report";
+	xmlStepsTag="steps";
+	xmlStepTag="step";
+	xmlStepNumberTag="number";
+	xmlStepDescTag="description";
+	xmlStepERTag="expected";
+	xmlStepARTag="actual";
+	xmlStepResultTag="result";
+	xmlStepAtmtTag="attachment";
+	xmlStepAtmtNameTag="name";
+	xmlStepAtmtPathTag="path";
+	xmlHeaderTag="header";
+	xmlHeaderDescTag="description";
+	xmlStartTimeTag="start_time";
+	xmlEndTimeTag="end_time";
+	xmlTestNameAttribute="test_name";
+	xmlSystemNameAttribute="system_name";
+	xmlExecutionProgressAttribute="execution_progress";
+	
+	startTime="";
+	endTime="";
+	executionDuration="";
+	noOfSteps=0;
+	testResult="Pass";
+	noOfFailures=0;
+	noOfWarnings=0;	
+	testName="";
+	systemName="";
+	executionProgress="";
+}
+
+function loadXMLDoc(dname) {
+	if (navigator.appName.toUpperCase().indexOf("INTERNET EXPLORER",1)>=0) {		
+		xmlDoc = new ActiveXObject("Microsoft.XMLDOM");
+		xmlDoc.async = false;
+		while(xmlDoc.readyState != 4) {};
+		xmlDoc.load(dname);  	  
+		return xmlDoc
+	}
+	else {		
+		try{
+			xhttp=new XMLHttpRequest();
+			xhttp.open("GET",dname,false);
+			xhttp.send();
+			return xhttp.responseXML;
+			}catch(err){
+				alert("Report viewing is not supported in this browser. Please switch to Microsoft Internet Explorer or Mozilla Firefox.");
+			}
+	}	
+}
+
+function analyseAndCreate() {
+	//Prepare
+	var xmlDoc;
+    xmlDoc = loadXMLDoc(resourcesFolderName +"/" + xmlReportName);	
+	//Ready
+	var onlySteps, stepsTag, stepsAndHeaders, rootTag;
+	rootTag=xmlDoc.getElementsByTagName(xmlRootTag)[0];
+	
+	//Note the obvious information
+	testName=rootTag.getAttribute(xmlTestNameAttribute) ;
+	systemName=rootTag.getAttribute(xmlSystemNameAttribute);
+	executionProgress=rootTag.getAttribute(xmlExecutionProgressAttribute);
+	startTime=xmlDoc.getElementsByTagName(xmlStartTimeTag)[0].childNodes[0].nodeValue;
+	endTime=xmlDoc.getElementsByTagName(xmlEndTimeTag)[0].childNodes[0].nodeValue;
+	executionDuration=new Date(endTime).getTime() - new Date(startTime).getTime();
+	executionDuration=Math.floor((executionDuration/1000)/60) + " Minute(s) : " + Math.floor((executionDuration/1000)%60) + " Second(s)";
+		
+	//Header structure
+	createReportHeader();
+	document.write("<BR>&nbsp;<BR>");	
+	//Report structure
+	beginStepsTable();
+	createStepsTableHeader();	
+	
+	
+	//Fetch information from the xml file and write into html
+	stepsTag=xmlDoc.getElementsByTagName(xmlStepsTag)[0];
+	stepsAndHeaders=stepsTag.childNodes;
+	var cni; //Current Node Index
+	//Nerve center
+	for(cni=0; cni<stepsAndHeaders.length; cni++){				
+		if(stepsAndHeaders[cni].nodeName==xmlStepTag) {
+			noOfSteps=noOfSteps+1
+			var snum, sdesc, sact, sexp, sres;
+			var stepChildren, esc;
+			stepChildren=stepsAndHeaders[cni].childNodes;
+			var atmtNames=new Array();
+			var atmtPaths=new Array();
+			for(esc=0; esc<stepChildren.length; esc++){
+				switch(stepChildren[esc].nodeName){
+					case xmlStepNumberTag:
+						if(stepChildren[esc].childNodes.length>0){
+							snum=stepChildren[esc].childNodes[0].nodeValue;
+						}
+						else{
+							snum=""
+						}						
+					break;
+					case xmlStepDescTag:
+						if(stepChildren[esc].childNodes.length>0){
+						sdesc=stepChildren[esc].childNodes[0].nodeValue;
+						}
+						else{
+							sdesc=""
+						}	
+					break;
+					case xmlStepERTag:
+						if(stepChildren[esc].childNodes.length>0){
+						sexp=stepChildren[esc].childNodes[0].nodeValue;
+						}
+						else{
+							sexp=""
+						}	
+					break;
+					case xmlStepARTag:
+						if(stepChildren[esc].childNodes.length>0){
+						sact=stepChildren[esc].childNodes[0].nodeValue;
+						}
+						else{
+							sact=""
+						}	
+					break;
+					case xmlStepResultTag:
+						if(stepChildren[esc].childNodes.length>0){
+						sres=stepChildren[esc].childNodes[0].nodeValue;
+						}
+						else{
+							sres=""
+						}	
+					break;
+					case xmlStepAtmtTag:						
+						var atmtChildren, currAtmtChild;
+						atmtChildren=stepChildren[esc].childNodes;
+						for(currAtmtChild=0; currAtmtChild<atmtChildren.length; currAtmtChild++){
+							switch(atmtChildren[currAtmtChild].nodeName){
+								case xmlStepAtmtNameTag:
+									atmtNames.push(atmtChildren[currAtmtChild].childNodes[0].nodeValue);
+								break;
+								case xmlStepAtmtPathTag:
+									atmtPaths.push(atmtChildren[currAtmtChild].childNodes[0].nodeValue);
+								break;
+							}
+						}
+					break;
+				}
+			}
+			addStep(snum, sdesc, sact, sexp, sres);			
+			addAttachmentsToStep(atmtNames, atmtPaths);			
+		}
+		else if(stepsAndHeaders[cni].nodeName==xmlHeaderTag){
+			addHeader(stepsAndHeaders[cni].childNodes[0].nodeValue);
+		}
+	}
+	endStepsTable();
+	//Header data
+	fillHeaderData();
+}
+
+function createReportHeader(){
+	document.write('<table id="header_table"><tr><td id="title" colSpan="7"></td>');
+	document.write('<td colspan="1" ><img src="' + resourcesFolderName + "/" + cardinalHealthLogoFileName +'"></img></td>')
+	document.write('</tr>')
+	document.write('<tr class="header_details_label">');
+	document.write('<td>Result</td>');
+	document.write('<td>Start Time</td>');
+	document.write('<td>Execution Time</td>');
+	document.write('<td>Number Of Steps</td>');
+	document.write('<td>Number Of Failures</td>');
+	document.write('<td>Number Of Warnings</td>');
+	document.write('<td>System Name</td>')	;
+	document.write('<td>Execution Progress</td>');
+	
+	document.write('</tr>');
+	document.write('<tr class="header_details_data">');
+	document.write('<td id="header_result"></td>');
+	document.write('<td id="header_start_time"></td>');
+	document.write('<td id="header_duration"></td>');
+	document.write('<td id="header_number_of_steps"></td>');
+	document.write('<td id="header_number_of_steps_with_failures"></td>');
+	document.write('<td id="header_number_of_steps_with_warnings"></td>');
+	document.write('<td id="header_system_name"></td>')	;
+	document.write('<td id="header_execution_progress"></td>');
+	
+	document.write('</tr>');
+	document.write('</table>');
+}
+
+function fillHeaderData(){
+	document.getElementById("title").innerHTML=testName;
+	document.getElementById("header_start_time").innerHTML=startTime;
+	document.getElementById("header_duration").innerHTML=executionDuration;
+	document.getElementById("header_number_of_steps").innerHTML=noOfSteps;
+	document.getElementById("header_number_of_steps_with_failures").innerHTML=noOfFailures;
+	document.getElementById("header_number_of_steps_with_warnings").innerHTML=noOfWarnings;
+	document.getElementById("header_system_name").innerHTML=systemName;
+	document.getElementById("header_execution_progress").innerHTML=executionProgress;
+	
+	testResult=testResult.toUpperCase()
+	if(testResult=="FAIL") {		
+		document.getElementById("header_result").style.color="#ff0000";
+	}
+	else if(testResult=="WARNING"){		
+		document.getElementById("header_result").style.color="#a8641a";
+	}	
+	else if(testResult=="PASS"){				
+		document.getElementById("header_result").style.color="#53AA77";
+	}
+	document.getElementById("header_result").innerHTML=testResult;
+}
+
+function beginStepsTable(){
+	document.write('<table id="steps_table">');
+}
+
+function endStepsTable(){
+	document.write('</table>');	
+}
+
+function createStepsTableHeader(){	
+	document.write('<tr id="steps_table_header">');
+	document.write('<th>S.no</th>');
+	document.write('<th>Step Description</th>')	;
+	document.write('<th>Expected Behavior</th>');
+	document.write('<th>Actual Behavior</th>');
+	document.write('<th>Step Result</th>');
+	document.write('</tr>')	;
+}
+
+function addStep(num, desc, act, exp, res) {	
+	var stepResultClass;
+	res=res.toUpperCase()
+	if(res=="FAIL") {
+		testResult="FAIL";
+		noOfFailures=noOfFailures+1;
+		stepResultClass="step_result_fail";
+	}
+	else if(res=="WARNING"){
+		testResult="WARNING";
+		noOfWarnings=noOfWarnings+1;
+		stepResultClass="step_result_warning";
+	}
+	else if(res=="INFORMATION"){				
+		stepResultClass="step_result_information";
+	}
+	else if(res=="PASS"){				
+		stepResultClass="step_result_pass";
+	}
+	
+	document.write('<tr class="step_detail">');
+	document.write('<td class="step_number">' + num + '.</td>');
+	document.write('<td class="step_description">' + desc + '</td>');
+	document.write('<td class="step_expected_result">' + exp + '</td>');
+	document.write('<td class="step_actual_result">' + act + '</td>');
+	document.write('<td class="' + stepResultClass + '">' + res + '</td>');
+	document.write('</tr>');
+}
+
+function addAttachmentsToStep(atmtNames, atmtPaths) {	
+	document.write('<tr class="step_attachments"><td colspan="5">Attachments : </td></tr>');	
+	var atmtCount;		
+	for(atmtCount=0; atmtCount<atmtNames.length; atmtCount++) {	
+		document.write('<tr class="step_attachment_name"><td class="step_attachment_name" colspan="5"><a href="' + atmtPaths[atmtCount] + '">' + atmtNames[atmtCount] + '</a></td></tr>');
+	}		
+}
+
+function addHeader(hd) {	
+	document.write('<tr class="step_header">');
+	document.write('<td class="step_header" colspan="5">' + hd.toUpperCase() + '</td>');
+	document.write('</tr>');
+}
+</script>
+<style>	
+	#title{font-weight:Bold;text-align:left;font-size:25;color:#000000;font-family:Calibri;}
+	#header_table{border-style:solid;width:100%; border-spacing: 0.15em 0.1em;}
+	#steps_table{border-style:solid;width:100%; border-spacing: 0.15em 0.1em;}
+	#steps_table_header{text-align:center;font-family:Calibri;background-color:#9cb9d9;color:#ffffff;font-size:20px}
+	.step_detail{background-color:#efebe0;font-family:Verdana;text-align:left;font-size:12px}
+	.step_result_pass{width:5%;text-align:center;color:#53AA77;font-weight:Bold;}
+	.step_result_fail{width:5%;text-align:center;color:#ff0000;font-weight:Bold;}
+	.step_result_warning{width:5%;text-align:center;color:#a8641a;font-weight:Bold;}
+	.step_result_information{width:5%;text-align:center;color:#1552ac;font-weight:Bold;}
+	.step_number{width:5%;font-weight:Bold;text-align:center;}
+	.step_description{width:50%;}
+	.step_expected_result{width:20%;}
+	.step_actual_result{width:20%;}
+	.step_attachments{text-align:left;font-family:Arial;font-size:12px}
+	.step_attachment_name{text-align:left;font-family:Verdana;text-align:left;font-size:14px}
+	.step_header{text-align:center;font-weight:Bold;font-family:Calibri; background-color:#c9c9c9;color:#000000;}		
+	.header_details_label{font-weight:Bold;background-color:#9cb9d9;font-family:Verdana;text-align:center;font-size:12px;color:#ffffff;}
+	.header_details_data{font-family:Verdana;text-align:center;font-size:12px}
+</style>
+</head>
+
+<body>
+<script>
+initialize()
+analyseAndCreate()
+</script>
+</body>
+</html>

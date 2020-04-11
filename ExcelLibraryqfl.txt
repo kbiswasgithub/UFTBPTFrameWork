@@ -1,0 +1,637 @@
+Option Explicit
+
+	'**************************************************************
+	'Function - NewExcelLibrary
+	'Description - Use this function to get an object of the ExcelHandler class
+	'Author - Lavneesh Chandna
+	'Date - Oct-18-2012
+	'**************************************************************
+	Function NewExcelLibrary
+		Set NewExcelLibrary = new ExcelHandler	
+	End Function
+
+
+	'**************************************************************
+	'Function - getOpenedWorkbookFilePath
+	'Description - Use this function to get the file path of an already opened workbook
+	'Parameter -  
+	'Author - Lavneesh Chandna
+	'Date - Oct-29-2012
+	'**************************************************************
+	Function getActiveWorkbookFilePath
+
+	   Dim excelApp
+	   Dim excelPath
+	   Dim waitCount
+
+	   waitCount = 20
+	   Err.Clear
+	   On Error Resume Next
+	   Do while(waitCount > 0) 		
+		   excelReport = ""
+		   Set excelApp = GetObject(,"Excel.Application")
+			if(Err.Number<>0) then
+				excelReport = "No workbook currently opened. "
+				Err.Clear
+			else				
+				excelPath = excelApp.ActiveWorkbook.fullname
+				Exit Do
+			end if
+			waitCount = waitCount - 1
+			call wait(1)
+		Loop
+		On Error Goto 0
+		Print "Excel File Path - " & excelPath
+		getActiveWorkbookFilePath = excelPath
+
+	End Function
+
+Class ExcelHandler
+	Private excelFileName
+	Private excelFilePath
+	Private excelAppObj
+	Private excelRowCount
+	Private excelColumnCount
+	Private excelWorkbook
+	Private excelWorksheet
+	Private excelHeaderRowIndex
+	Private excelDataStartsAtRowIndex
+	Private excelIgnoreCaseWhileMatching
+	Private excelHasHeaders
+	Private excelReport
+
+
+	Private Sub Class_Initialize
+		HeaderRowIndex = 1
+		DataStartsAtRowIndex = 2
+		ignoreCaseWhileMatching = true
+		excelReport = ""		
+	End Sub
+
+	'**************************************************************
+	'**************************************************************
+	'*******************PROPERTIES BEGIN*****************
+	'**************************************************************
+	'**************************************************************
+
+
+	
+	'**************************************************************
+	'Property - workbook
+	'Description - Use this property to set the current workbook 
+	'Parameter - valueToSet(Absolute path of the excel)
+	'Error handling - Error is raised in case the file does not exist
+	'Author - Lavneesh Chandna
+	'Date - Oct-18-2012
+	'**************************************************************
+	Public Property Let workbook(valueToSet)	
+	   'msgbox "open wokbook " & valueToSet
+			Err.Clear
+			Dim fso
+		   Set fso = CreateObject("Scripting.FileSystemObject")
+		   if(fso.FileExists(valueToSet)) then
+				excelFilePath = valueToSet
+				excelFileName = fso.GetFileName(excelFilePath)
+				Set excelAppObj = CreateObject("Excel.Application")
+				Set excelWorkbook = excelAppObj.Workbooks.Open(excelFilePath,,true)	
+			else									                			
+				call Err.Raise(vbObjectError + 1,"ExcelLibrary.Workbook","File not found : " & valueToSet)
+		   end if	  		   		   	  
+	End Property	
+
+	'**************************************************************
+	'Property - worksheet
+	'Description - Use this property to set the current worksheet 
+	'Parameter - valueToSet(Index or name of the sheet)
+	'Error handling - Error is raised in case the file does not exist, or the worksheet does not exist
+	'Author - Lavneesh Chandna
+	'Date - Oct-18-2012
+	'**************************************************************
+	Public Property Let worksheet(valueToSet)	
+	   Err.Clear
+		if(isEmpty(excelWorkbook) OR excelWorkbook is nothing) then			
+			call Err.Raise(vbObjectError + 2,"Worksheet","Workbook not initialized")
+		else
+			Set excelWorksheet = excelWorkbook.Worksheets(valueToSet)				
+			excelColumnCount = excelWorksheet.usedRange.columns.count
+
+			excelRowCount = excelWorksheet.usedRange.rows.count
+			if(excelRowCount>=1) then
+				Dim cr, cc, rc, tempSheetData
+				rc=excelWorksheet.rows.count
+				For cr=1 to rc		
+					tempSheetData=""
+					For cc=1 to excelColumnCount
+						print "Current Cell Row,Col " & cr & "," & cc
+						tempSheetData=tempSheetData & excelWorksheet.cells(cr,cc).value
+					Next
+					if(trim(tempSheetData)<>"") then
+						excelRowCount=cint(excelRowCount)+cint(cr-1)
+						Exit For
+					end if
+				Next
+				For cr=excelRowCount to 1 Step -1
+					tempSheetData=""
+					For cc=1 to excelColumnCount
+						print "Current Cell Row,Col " & cr & "," & cc
+						tempSheetData=tempSheetData & excelWorksheet.cells(cr,cc)
+					Next
+					if(trim(tempSheetData)<>"") then
+						excelRowCount=cr
+						Exit For
+					end if
+				Next
+			end if
+		end if		   
+	End Property
+
+	'**************************************************************
+	'Property - HeaderRowIndex
+	'Description - Use this property to set the row index of the header in the excel worksheet, default value is 1
+	'Parameter - valueToSet (Row index, starting from 1, Use 0 to indicate that excel has no headers)
+	'Author - Lavneesh Chandna
+	'Date - Oct-18-2012
+	'**************************************************************
+	Public Property Let HeaderRowIndex(valueToSet)
+		if(valueToSet = 0) then
+			excelHasHeaders = false
+	   else
+			excelHasHeaders = true
+			excelHeaderRowIndex = valueToSet
+	   end if
+	End Property	
+
+	'**************************************************************
+	'Property - ignoreCaseWhileMatching
+	'Description - Use this property to set the behaviour of Ignore Case while matching, default is TRUE
+	'Parameter - valueToSet(TRUE or FALSE)
+	'Author - Lavneesh Chandna
+	'Date - Oct-18-2012
+	'**************************************************************
+	Public Property Let ignoreCaseWhileMatching(valueToSet)
+		excelIgnoreCaseWhileMatching = valueToSet
+	End Property
+
+	'**************************************************************
+	'Property - DataStartsAtRowIndex
+	'Description - Use this property to set row index of the row from which the data starts in the excel
+	'Parameter - valueToSet(Row index, starting from 1)
+	'Author - Lavneesh Chandna
+	'Date - Oct-18-2012
+	'**************************************************************
+	Public Property Let DataStartsAtRowIndex(valueToSet)	  
+		excelDataStartsAtRowIndex = valueToSet	   
+	End Property	
+	
+
+	'**************************************************************
+	'Property - rowCount
+	'Description - Use this property to get the row count
+	'Author - Lavneesh Chandna
+	'Date - Oct-18-2012
+	'**************************************************************
+	Public Property Get rowCount
+		rowCount = excelRowCount	
+	End Property
+
+	'**************************************************************
+	'Property - columnCount
+	'Description - Use this property to get the column count
+	'Author - Lavneesh Chandna
+	'Date - Oct-18-2012
+	'**************************************************************
+	Public Property Get columnCount
+ 		columnCount = excelColumnCount	
+	End Property
+
+	'**************************************************************
+	'**************************************************************
+	'*******************PROPERTIES END*******************
+	'**************************************************************
+	'**************************************************************
+
+
+
+	
+	'**************************************************************
+	'**************************************************************
+	'*******************FUNCTIONS BEGIN*******************
+	'**************************************************************
+	'**************************************************************
+
+	'**************************************************************
+	'Function - getReport
+	'Description - Use this function to get latest error report
+	'Author - Lavneesh Chandna
+	'Date - Oct-26-2012
+	'**************************************************************
+	Public Function getErrorReport
+		getErrorReport = excelReport
+	End Function
+
+
+	'**************************************************************
+	'Function - closeWorkbook
+	'Description - Use this function to close the workbook connection
+	'Author - Lavneesh Chandna
+	'Date - Oct-18-2012
+	'**************************************************************
+	Public Function closeWorkbook
+		excelWorkbook.Close(false)
+	End Function
+
+	'**************************************************************
+	'Function - getColumnIndex
+	'Description - Use this function to get the column index of a column
+	'Parameter -  columnName(Name of the column)
+	'Error handling - Error is raised in case the column name is not found
+	'Author - Lavneesh Chandna
+	'Date - Oct-18-2012
+	'**************************************************************
+	Public Function getColumnIndex(columnName)
+	   excelReport = ""
+	   if(excelHasHeaders) then
+		   Dim currCol
+		   Dim cellData
+		   if(excelIgnoreCaseWhileMatching) then
+				columnName = UCase(columnName)
+		   end if
+			For currCol = 1 to columnCount
+				cellData = excelWorksheet.cells(excelHeaderRowIndex,currCol)
+				if(excelIgnoreCaseWhileMatching) then
+					cellData = UCase(cellData)
+				end if
+				if(columnName = cellData) then
+					getColumnIndex = currCol
+					Exit For
+				end if
+			Next
+		else
+			excelReport = "Trying to get column index from excel with no header row"
+			call Err.Raise(vbObjectError,"ExcelLibrary.GetColumnIndex","Trying to get column index from excel with no header row")
+		end if
+	End Function
+
+	'**************************************************************
+	'Function - getColumnDataByColumnName
+	'Description - Use this function to get a 1-dimension array containing the column data)
+	'Parameter -  columnName(Name of the column), withHeader(TRUE or FALSE depending on whether to include column header in the array or not)
+	'Error handling - Error is raised in case the column name is not found
+	'Author - Lavneesh Chandna
+	'Date - Oct-18-2012
+	'**************************************************************
+	Public Function getColumnDataByColumnName(columnName, withHeader)
+	   excelReport = ""
+	   if(excelHasHeaders) then
+			getColumnDataByColumnName = getColumnDataByColumnIndex(getColumnIndex(columnName),withHeader)
+	   else
+	 		excelReport = "Trying to get column data from excel by column name. The excel has no column names row."
+			call Err.Raise(vbObjectError,"ExcelLibrary.getColumnDataByColumnName","Trying to get column data from excel by column name. The excel has no column names row.")
+	   end if
+	End Function
+
+	'**************************************************************
+	'Function - getColumnDataByColumnIndex
+	'Description - Use this function to get a 1-dimension array containing the column data)
+	'Parameter -  columnIndex(Index of the column, starting from 1), withHeader(TRUE or FALSE depending on whether to include column header in the array or not)
+	'Error handling - Error is raised in case the column index is out of range of the available column count
+	'Author - Lavneesh Chandna
+	'Date - Oct-18-2012
+	'**************************************************************
+	Public Function getColumnDataByColumnIndex(columnIndex, withHeader)
+		Dim columnData()	   
+	   Dim currTargetRowIndex
+		currTargetRowIndex = 0
+		if(excelHasHeaders AND withHeader) then
+			ReDim columnData(excelRowCount-excelDataStartsAtRowIndex+1)
+			columnData(currTargetRowIndex) = excelWorksheet.cells(excelHeaderRowIndex,columnIndex).value
+			currTargetRowIndex = currTargetRowIndex+1
+		else
+			ReDim columnData(excelRowCount-excelDataStartsAtRowIndex)
+		end if	   
+		Dim currSourceRowIndex
+		For currSourceRowIndex = excelDataStartsAtRowIndex to excelRowCount
+			columnData(currTargetRowIndex) = excelWorksheet.cells(currSourceRowIndex,columnIndex).value
+			currTargetRowIndex = currTargetRowIndex+1
+		Next		
+		getColumnDataByColumnIndex = columnData
+	End Function
+
+			
+	'**************************************************************
+	'Function - getCustomizedData
+	'Description - Use this function to get a 2-dimension array containing the currently selected worksheet's data from customized set of columns
+	'Parameter -  withHeader(TRUE or FALSE depending on whether to include column header in the array or not)
+	'Author - Lavneesh Chandna
+	'Date - Nov-5-2012
+	'**************************************************************
+	Function getCustomizedData(headersToGet, withHeaders)
+		Dim tempData(), currHeader	
+		ReDim tempData(UBound(headersToGet))
+		Dim maxRowCount
+		maxRowCount = 0
+		if(withHeaders AND excelHasHeaders) then
+		else
+			withHeaders = false
+		end if
+		For currHeader = 0 to UBound(headersToGet)
+			tempData(currHeader) = getColumnDataByColumnName(headersToGet(currHeader),withHeaders)
+			if((UBound(tempData(currHeader))+1)>maxRowCount) then
+				maxRowCount = UBound(tempData(currHeader))+1
+			end if
+		Next
+		
+		Dim data(), currRow, currCol
+		ReDim data(maxRowCount-1,UBound(headersToGet))
+'		if(replaceSpecialChars) then
+'			Dim noSpclChar
+'			Set noSpclChar = new Regexp
+'			noSpclChar.pattern = excelReplacementPattern
+'			noSpclChar.ignorecase = true
+'			noSpclChar.global = true
+'			For currRow = 0 to UBound(data,1)
+'				For currCol = 0 to UBound(data,2)
+'					data(currRow,currCol) = noSpclChar.replace(tempData(currCol)(currRow)	,"")								
+'				Next
+'			Next		
+'		else
+			For currRow = 0 to UBound(data,1)
+				For currCol = 0 to UBound(data,2)
+					data(currRow,currCol) = tempData(currCol)(currRow)
+				Next
+			Next		
+		'end if
+		getCustomizedData = data
+	End Function
+
+
+
+	'**************************************************************
+	'Function - getData
+	'Description - Use this function to get a 2-dimension array containing the currently selected worksheet's data
+	'Parameter -  withHeader(TRUE or FALSE depending on whether to include column header in the array or not)
+	'Author - Lavneesh Chandna
+	'Date - Oct-18-2012
+	'**************************************************************
+	Public Function getData(withHeaders)
+	   Dim data()
+	   Dim currentTargetRow
+	   Dim currRow,currCol
+	   currentTargetRow = 0
+		if(withHeaders AND excelHasHeaders) then
+			ReDim data(excelRowCount-excelDataStartsAtRowIndex+1, excelColumnCount-1)
+			For currCol = 0 to UBound(data,2)
+				data(currentTargetRow,currCol) = excelWorksheet.cells(excelHeaderRowIndex,currCol+1)
+			Next
+			currentTargetRow = 1
+		else
+			ReDim data(excelRowCount-excelDataStartsAtRowIndex, excelColumnCount-1)			
+		end if
+
+		Dim arrayRowSize, arrayColSize
+		Dim currentSourceRow
+		currentSourceRow = excelDataStartsAtRowIndex		
+			arrayRowSize = UBound(data,1)
+			arrayColSize = UBound(data,2)
+			For currRow = currentTargetRow to arrayRowSize
+                For currCol = 0 to arrayColSize
+					data(currRow,currCol) = excelWorksheet.cells(currentSourceRow,currCol+1)
+				Next
+				currentSourceRow = currentSourceRow+1
+			Next
+			getData = data
+	End Function
+
+	'**************************************************************
+	'Function - getHeaders
+	'Description - Use this function to get a 1-dimensional array of the headers in the excel, if the excel does not have headers, a blank array will be returned
+	'Parameter -  
+	'Author - Lavneesh Chandna
+	'Date - Oct-25-2012
+	'**************************************************************
+	Function getHeaders
+	   Dim headerArray()
+		if(excelHasHeaders) then
+			ReDim headerArray(excelColumnCount-1)
+			Dim currCol
+			For currCol = 0 to UBound(headerArray)
+				headerArray(currCol) = excelWorksheet.cells(excelHeaderRowIndex,currCol+1).value
+			Next
+		end if
+		getHeaders = headerArray
+	End Function
+
+	'**************************************************************
+	'Function - verifyDataWithHeadersMap
+	'Description - Use this function verify 2d data in the excel workbook. Data can be sent in any order. Actual rows will be found inside the excel in any order.
+	'Parameter -  expectedData2dArray (A 2 dimensional array containing the data to verify), 
+								'headerMap2dArray("A 2 d array containing information about how a header value (in the passed data array) is mapped to the headers in the excel worksheet")
+	'Author - Lavneesh Chandna
+	'Date - Oct-26-2012
+	'**************************************************************
+	Function verify2dDataWithHeadersMap(expectedData2dArrayWithoutHeaders, headerMap1dArray)
+		Dim noSpclChar, matcher
+		Set noSpclChar = new Regexp
+		noSpclChar.pattern = "[\W]+|[0]+"
+		noSpclChar.ignorecase = true
+		noSpclChar.global = true
+		Dim actualData, currExpRow, currExpCol, currActRow, currActCol, result
+		excelReport = ""
+		result = true
+		Dim numericErrorThreshold
+		numericErrorThreshold = 0.5
+		On Error Resume Next
+		Err.Clear
+   	   actualData = getCustomizedData(headerMap1dArray,false)
+	   if(Err.Number<>0) then
+			result = false
+			verify2dDataWithHeadersMap = result
+			excelReport = "All expected column names not found in excel. Verify Column Names are properly given. Expected column names (" & join(headerMap1dArray,",") & ")" & Err.Description
+			Exit Function
+	   end if	
+
+	   On Error Goto 0
+	   Dim rowFound,cellMatch, tempActualData, tempExpData	  
+	   For currExpRow = 0 to UBound(expectedData2dArrayWithoutHeaders, 1)	    
+		   For currActRow = 0 to UBound(actualData, 1)
+			   rowFound = true
+				For currExpCol = 0 to UBound(expectedData2dArrayWithoutHeaders, 2)
+					tempActualData = actualData(currActRow, currExpCol)
+					tempExpData = expectedData2dArrayWithoutHeaders(currExpRow, currExpCol)
+					Select Case varType(tempActualData)
+						Case vbDouble	
+							cellMatch = (abs(tempActualData - tempExpData)) <= numericErrorThreshold
+						Case vbSingle	
+							cellMatch = (abs(tempActualData - tempExpData)) <= numericErrorThreshold
+						Case vbDate
+							cellMatch = (cdate(tempActualData) = cDate(tempExpData))
+						Case vbString
+							cellMatch = (noSpclChar.replace(tempActualData,"") = noSpclChar.replace(tempExpData,""))
+						Case else
+							cellMatch = (noSpclChar.replace(tempActualData,"") = noSpclChar.replace(tempExpData,""))
+					End Select
+					If(NOT cellMatch) then
+						rowFound = False
+						Print "Expected - " & tempExpData & " Actual - " & tempActualData 
+						Exit For
+					end if
+				Next
+				If(rowFound) then
+					Exit For
+				End if
+		   Next
+		   If(NOT rowFound) then
+				excelReport = excelReport & " Data mismatch: Table row " & (currExpRow+1) & " not found in excel."
+				result = false
+				Exit For
+		   End if
+	   Next
+		verify2dDataWithHeadersMap = result
+
+	End Function
+
+
+	'**************************************************************
+	'Function - verify1dDataWithHeadersMap
+	'Description - Use this function verify d1d ata in the excel workbook. 
+	'Parameter -  expectedData1dArray (A 1dimensional array containing the data to verify, with each row of data as string in 1d array), 
+								'headerMap1dArray("A 1 d array containing list of excel headers in order in which their corresponding data appear in the expectedData1dArray")
+	'Author - Lavneesh Chandna
+	'Date - Oct-30-2012
+	'**************************************************************
+	Function verify1dDataWithHeadersMap(expectedData1dArray, headerMap1dArray)
+
+	   excelReport=""
+	   Dim result
+	   result=true
+		Dim actual2dData(), actual1dData()
+		ReDim actual2dData(UBound(headerMap1dArray))
+		ReDim actual1dData(UBound(expectedData1dArray))
+		Dim currHeaderIndex, currRowIndex
+		Dim currADRow
+		Dim noSpclChar, matcher
+		Set noSpclChar=new Regexp
+		noSpclChar.pattern="[\W]+|[0]+"
+		noSpclChar.ignorecase=true
+		noSpclChar.global=true
+
+		Set matcher=new RegExp
+		matcher.ignorecase=true
+		matcher.global=true
+		
+		On Error Resume Next
+		For currHeaderIndex=0 to UBound(headerMap1dArray)		
+			actual2dData(currHeaderIndex)=getColumnDataByColumnName(headerMap1dArray(currHeaderIndex),false)
+			if(Err.Number<>0) then
+				excelReport=excelReport & " Column name " & headerMap1dArray(currHeaderIndex) & " not found in the excel. "
+				result=false
+				Err.Clear
+			end if
+		Next
+		On Error Goto 0
+		if(result=true) then
+			Dim temp
+			For currRowIndex=0 to UBound(actual2dData(0))	
+				temp=""
+				Dim ci
+				For ci=0 to UBound(headerMap1dArray)		
+					Dim tempData
+					tempData=actual2dData(ci)(currRowIndex)
+					'print "br" & tempData
+					Select Case VarType(tempData)
+						Case vbDate
+							'temp=temp & "[0]?" & month(tempData) & "[0]?" & day(tempData) & year(tempData)
+							temp=temp & noSpclChar.replace(tempData,"")	
+						Case vbDouble
+							temp=temp & noSpclChar.replace(tempData,"")
+						Case vbSingle
+							temp=temp & noSpclChar.replace(tempData,"")												
+						Case vbString
+							temp=temp & noSpclChar.replace(tempData	,"")
+						Case else
+							temp=temp & noSpclChar.replace(tempData	,"")
+					End Select		
+					'print "ar" & temp								
+				Next
+				actual1dData(currRowIndex)=temp
+			Next			
+
+			Dim currEDRow,lastEDRow, EDCount, tempResult
+			
+			EDCount=UBound(expectedData1dArray)+1
+			lastEDRow=0
+			For currADRow=0 to UBound(expectedData1dArray)		
+				temp=noSpclChar.replace(expectedData1dArray(currADRow),"")
+				tempResult=false
+				currEDRow=lastEDRow				
+				Do
+						matcher.pattern=actual1dData(currEDRow)
+						currEDRow=(currEDRow+1) MOD EDCount
+						'print actual1dData(currADRow) & "  TEST  " & temp
+						if(matcher.test(temp)) then
+							tempResult=true
+							Exit Do							
+						end if
+				loop While(currEDRow<>lastEDRow)	
+				lastEDRow=currEDRow
+				if(NOT tempResult) then
+					excelReport = excelReport & " - - Not Found in exported Excel (Row:- " & (currADRow+1) & ") = " & expectedData1dArray(currADRow) 
+					result=false
+				end if
+			Next		
+		end if
+		verify1dDataWithHeadersMap=result
+
+	End Function
+
+	'**************************************************************
+	'Function - verifyData
+	'Description - Use this function verify data in the excel workbook. 
+	'Parameter -  expectedData2dArray (A 2 dimensional array containing the data to verify), 
+								'withHeaders("TRUE or FALSE depending whether the passed array contains headers or not")
+	'Author - Lavneesh Chandna
+	'Date - Oct-26-2012
+	'**************************************************************
+	Function verify2dData(expectedData2dArray, withHeaders)
+	   Dim data,cellMatch,cr,cc
+	   excelReport = ""
+	   data = getData(withHeaders)
+	   Dim result
+	   result = true
+'	   print UBound(expectedData2dArray,1)
+'	   print UBound(data,1)
+'	   print UBound(expectedData2dArray,2)
+'	   print UBound(data,2)
+	   if(UBound(expectedData2dArray,1) = UBound(data,1) AND UBound(expectedData2dArray,2) = UBound(data,2)) then
+	 		For cr = 0 to UBound(expectedData2dArray,1)
+				For cc = 0 to UBound(expectedData2dArray,2)
+					cellMatch = false
+                    Select Case varType(data(cr,cc))
+						Case vbDate
+							cellMatch = (cDate(expectedData2dArray(cr,cc)) = data(cr,cc))
+						Case vbdouble
+							cellMatch = (cDbl(expectedData2dArray(cr,cc)) = data(cr,cc))
+						Case vbString
+							cellMatch = (expectedData2dArray(cr,cc) = data(cr,cc))
+						Case else
+							cellMatch = (expectedData2dArray(cr,cc) = data(cr,cc))
+					End Select
+					if(NOT cellMatch) then
+						result = false
+						excelReport = excelReport & "Data mismatch - Table (" & cr & "," & cc & ") = " & expectedData2dArray(cr,cc) & ", Excel = " & data(cr,cc)
+					end if
+				Next
+			Next
+	   else
+		 	result = false
+			excelReport = "Row or column count of the passed array and excel do not match"
+	   end if
+		verifyData = result
+	End Function
+
+	'**************************************************************
+	'**************************************************************
+	'*******************FUNCTIONS END*******************
+	'**************************************************************
+	'**************************************************************
+End Class

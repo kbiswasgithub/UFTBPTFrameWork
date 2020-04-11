@@ -1,0 +1,189 @@
+'*****************************************************************************************************************************************************************************
+			'Function Name    		: getXMLObject
+			'Description     			: SGet the microsoft DOM object for the given XML file
+			'Parameters Used     : xmlFilePath("File path where the XML is kept")
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 11/26/2012
+			'*****************************************************************************************************************************************************************************
+	Function getXMLObject(xmlFilePath)
+		Set getXMLObject = CreateObject("Microsoft.XMLDOM") 
+		getXMLObject.async = False 
+		getXMLObject.load(xmlFilePath)
+		if(getXMLObject.parseError.ErrorCode<>0) then			
+			Call logReport("Load the XML file located at location " & xmlFilePath,"File loaded successfully","Error encountered while loading the file - " & getXMLObject.parseError.Reason,"FAIL")
+			Set getXMLObject=Nothing
+		else
+			Call logReport("Load the XML file located at location " & xmlFilePath,"File loaded successfully","File loaded successfully","PASS")
+		end if
+	End Function
+
+'*****************************************************************************************************************************************************************************
+			'Function Name    		: setXMLNodeAttribute
+			'Description     			: Set the value of an attribute of the given XML node
+			'Parameters Used     : xmlObject ("Microsoft XML DOM object for the XML to edit"), nodeHierarchyArray("Array containing the path to the node"), attributeName("Name of the attribute to modify")
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 11/28/2012
+			'*****************************************************************************************************************************************************************************	
+	Function setXMLNodeAttribute(xmlObject, nodeHierarchyArray, attributeName, attributeValue)
+		Set setXMLNodeAttribute=getXMLNode(xmlObject.documentElement, nodeHierarchyArray, 0)	
+	   if(setXMLNodeAttribute is Nothing) then
+			call logReport("Trying to set the value of attribute " &  attributeName & " of node " & Join(nodeHierarchyArray," -> ") & " to "  & attributeValue,"Attribute is set to the new value","Node not found","FAIL")
+	   else
+			Err.Clear
+			On Error Resume Next
+	        setXMLNodeAttribute.Attributes.getNamedItem(attributeName).Text = attributeValue			
+			if(Err.Number<>0) then
+				call logReport("Trying to set the value of attribute " &  attributeName & " of node " & Join(nodeHierarchyArray," -> ") & " to "  & attributeValue,"Attribute is set to the new value","Attribute not found","FAIL")
+			else
+				call logReport("Trying to set the value of attribute " &  attributeName & " of node " & Join(nodeHierarchyArray," -> ") & " to "  & attributeValue,"Attribute is set to the new value","Attribute is set to the new value","PASS")
+			end if
+			On Error Goto 0			
+	   end if
+	End Function
+'*****************************************************************************************************************************************************************************
+			'Function Name    		: setXMLNodeText
+			'Description     			: Set the text of the given XML node
+			'Parameters Used     : xmlObject ("Microsoft XML DOM object for the XML to edit"), nodeHierarchyArray("Array containing the path to the node"), newValue
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 11/26/2012
+			'*****************************************************************************************************************************************************************************
+	Function setXMLNodeText(xmlObject, nodeHierarchyArray, newValue)	
+	   Set setXMLNodeText=getXMLNode(xmlObject.documentElement, nodeHierarchyArray, 0)	
+	   if(setXMLNodeText is Nothing) then
+			call logReport("Trying to set the node text of node " & Join(nodeHierarchyArray," -> ") & " to "  & newValue,"Node is set to the new value","Node not found","FAIL")
+	   else
+			setXMLNodeText.text=newValue
+			call logReport("Trying to set the node text of node " & Join(nodeHierarchyArray," -> ") & " to "  & newValue,"Node is set to the new value","Action performed","PASS")
+	   end if
+	End Function
+
+	'*****************************************************************************************************************************************************************************
+			'Function Name    		: verifyXMLNodeAttribute
+			'Description     			: Verify the value of an attribute of the given XML node
+			'Parameters Used     : xmlObject ("Microsoft XML DOM object for the XML to edit"), nodeHierarchyArray("Array containing the path to the node"), attributeName("Name of the attribute to modify")
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 11/28/2012
+			'*****************************************************************************************************************************************************************************	
+	Function verifyXMLNodeAttribute(xmlObject, nodeHierarchyArray, attributeName, attributeExpectedValue)
+	   Set verifyXMLNodeAttribute=getXMLNode(xmlObject.documentElement, nodeHierarchyArray, 0)	
+	   Dim result,actualValue
+	   if(verifyXMLNodeAttribute is Nothing) then
+			call logReport("Trying to verify that the value of attribute " & attributeName & "of node " & Join(nodeHierarchyArray," -> ") & " is "  & attributeExpectedValue,"Value matches","Node not found","FAIL")
+	   else
+	 		Err.Clear
+			On Error Resume Next
+				actualValue=verifyXMLNodeAttribute.Attributes.getNamedItem(attributeName).Text			
+			if(Err.Number<>0) then
+				call logReport("Trying to verify that the value of attribute " & attributeName & "of node " & Join(nodeHierarchyArray," -> ") & " is "  & attributeExpectedValue,"Value matches","Attribute not found","FAIL")
+			else
+				if(isNumeric(actualValue) AND isNumeric(attributeExpectedValue)) then
+					result=(cdbl(actualValue)=cdbl(attributeExpectedValue))
+				else
+					result=(UCase(actualValue)=UCase(attributeExpectedValue))
+					if(result) then
+						call logReport("Trying to verify that the value of attribute " & attributeName & "of node " & Join(nodeHierarchyArray," -> ") & " is "  & attributeExpectedValue,"Value matches","Value matches","PASS")
+					else
+						call logReport("Trying to verify that the value of attribute " & attributeName & "of node " & Join(nodeHierarchyArray," -> ") & " is "  & attributeExpectedValue,"Value matches","Mismatch. Actual value is " & actualValue,"FAIL")
+					end if		
+				end if	
+			end if	 			
+	   end if
+	   On Error Goto 0
+	End Function
+	
+	'*****************************************************************************************************************************************************************************
+			'Function Name    		: verifyXMLNodeText
+			'Description     			: Verify the text of the given XML node
+			'Parameters Used     : xmlObject ("Microsoft XML DOM object for the XML to edit"), nodeHierarchyArray("Array containing the path to the node"), expectedValue
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 11/26/2012
+			'*****************************************************************************************************************************************************************************
+	Function verifyXMLNodeText(xmlObject, nodeHierarchyArray, expectedValue)
+	   
+	   Set verifyXMLNodeText=getXMLNode(xmlObject.documentElement, nodeHierarchyArray, 0)	
+	   Dim result
+	   if(verifyXMLNodeText is Nothing) then
+			call logReport("Trying to verify that the node text of node " & Join(nodeHierarchyArray," -> ") & " is "  & expectedValue,"Value matches","Node not found","FAIL")
+	   else
+	 		if(isNumeric(verifyXMLNodeText.text) AND isNumeric(expectedValue)) then			
+				result=(cdbl(verifyXMLNodeText.text)=cdbl(expectedValue))											
+			else
+				result=(instr(1,UCase(verifyXMLNodeText.text),UCase(expectedValue))>=1)							
+			end if			
+			if(result) then
+				call logReport("Trying to verify that the node text of node " & Join(nodeHierarchyArray," -> ") & " is "  & expectedValue,"Value matches","Value matches","PASS")
+			else
+				call logReport("Trying to verify that the node text of node " & Join(nodeHierarchyArray," -> ") & " is "  & expectedValue,"Value matches","Mismatch. Actual value = " & verifyXMLNodeText.text,"FAIL")
+			end if		
+	   end if
+	End Function
+
+		'*****************************************************************************************************************************************************************************
+			'Function Name    		: getXMLNodeAttribute
+			'Description     			: Get the value of an attribute of the given XML node
+			'Parameters Used     : xmlObject ("Microsoft XML DOM object for the XML to edit"), nodeHierarchyArray("Array containing the path to the node"), attributeName("Name of the attribute to modify")
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 11/28/2012
+			'*****************************************************************************************************************************************************************************	
+	Function getXMLNodeAttribute(xmlObject, nodeHierarchyArray,attributeName)
+		 Set getXMLNodeAttribute=getXMLNode(xmlObject.documentElement, nodeHierarchyArray, 0)	
+		   if(getXMLNodeAttribute is Nothing) then
+				call logReport("Trying to get the value of attribute " &  attributeName & " of node " & Join(nodeHierarchyArray," -> "),"Value is returned","Node not found","FAIL")
+		   else
+				Err.Clear
+				On Error Resume Next
+				getXMLNodeAttribute=getXMLNodeAttribute.Attributes.getNamedItem(attributeName).Text			
+				if(Err.Number<>0) then
+					call logReport("Trying to get the value of attribute " &  attributeName & " of node " & Join(nodeHierarchyArray," -> "),"Value is returned","Attribute not found","FAIL")
+					getXMLNodeAttribute=""
+				else
+					call logReport("Trying to get the value of attribute " &  attributeName & " of node " & Join(nodeHierarchyArray," -> "),"Value is returned","Value returned " & getXMLNodeAttribute,"PASS")
+				end if
+				On Error Goto 0			
+		   end if
+	End Function
+	
+	'*****************************************************************************************************************************************************************************
+			'Function Name    		: getXMLNodeText
+			'Description     			: Get the text of the given XML node
+			'Parameters Used     : xmlObject ("Microsoft XML DOM object for the XML to edit"), nodeHierarchyArray("Array containing the path to the node")
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 11/26/2012
+			'*****************************************************************************************************************************************************************************
+		Function getXMLNodeText(xmlObject, nodeHierarchyArray)
+		Set getXMLNodeText=getXMLNode(xmlObject.documentElement, nodeHierarchyArray, 0)	
+		   if(getXMLNodeText is Nothing) then
+				call logReport("Trying to get the node text of node " & Join(nodeHierarchyArray," -> "),"Node text returned","Node not found","FAIL")
+		   else
+				getXMLNodeText=getXMLNodeText.text
+				call logReport("Trying to get the node text of node " & Join(nodeHierarchyArray," -> "),"Node text returned","Value is " &getXMLNodeText,"PASS")
+		   end if
+	End Function
+	
+'*****************************************************************************************************************************************************************************
+			'Function Name    		: getXMLNode
+			'Description     			: Get the required XML node, else, Nothing
+			'Parameters Used     : parentElement("Element under which to find"), nodeHierarchyArray("Array containing the path to the node"), startFromElementIndex("Index of the nodeHierarchyArray from where to start looking")
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 11/26/2012
+			'*****************************************************************************************************************************************************************************
+	Function getXMLNode(parentElement, nodeHierarchy, startFromElementIndex)
+		Set children=parentElement.childNodes
+		if(UCase(parentElement.nodeName)=UCase(nodeHierarchy(startFromElementIndex))) then
+			startFromElementIndex=startFromElementIndex+1
+			if(startFromElementIndex=UBound(nodeHierarchy)+1) then
+				Set getXMLNode=parentElement
+				Exit Function
+			end if
+		end if
+		For child=0 to children.length-1		
+			Set temp=getXMLNode(children(child), nodeHierarchy, startFromElementIndex)		
+			if(NOT(temp is Nothing)) then
+				Set getXMLNode=temp
+				Exit Function 		
+			end if		
+		Next
+		Set getXMLNode=Nothing
+	End Function
+
+	

@@ -1,0 +1,1155 @@
+	'*****************************************************************************************************************************************************************************
+			'Function Name    		: getJREPath
+			'Description     			: Function to get the JRE path of the system
+			'Parameters Used     : 
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 07/01/2012
+			'*****************************************************************************************************************************************************************************
+	Function getJREPath
+	On Error Resume Next
+    	Dim wshShell
+	Set wshShell=CreateObject("WScript.shell")
+	Dim windowsHome
+	windowsHome=wshShell.ExpandEnvironmentStrings("%SYSTEMROOT%")
+	Dim fso
+	Set fso=CreateObject("Scripting.FileSystemObject")
+	Dim javaVersion
+	Dim bits
+	bits = GetObject("winmgmts:root\cimv2:Win32_Processor='cpu0'").AddressWidth
+	if(bits=32) then
+		javaVersion=wshShell.RegRead("HKEY_LOCAL_MACHINE\SOFTWARE\JavaSoft\Java Runtime Environment\CurrentVersion")
+		getJREPath=wshShell.RegRead("HKEY_LOCAL_MACHINE\SOFTWARE\JavaSoft\Java Runtime Environment\" & javaversion & "\JavaHome")
+	else
+		javaVersion=wshShell.RegRead("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\JavaSoft\Java Runtime Environment\CurrentVersion")
+		getJREPath=wshShell.RegRead("HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\JavaSoft\Java Runtime Environment\" & javaversion & "\JavaHome")
+	end If
+	if(Err.Number<>0) then
+		Call logReport("Trying to find the JRE installation path for this computer","JRE path is found in the registry","JRE path is not found","FAIL")
+		getJREPath=""
+	else
+		Call logReport("Trying to find the JRE installation path for this computer","JRE path is found in the registry","JRE path is found","PASS")
+	end if
+	Err.Clear
+	On Error Goto 0
+End Function
+
+'*****************************************************************************************************************************************************************************
+			'Function Name    		: convertStringToArray
+			'Description     			: Convert a given ddelimitted string into an array
+			'Parameters Used     : 
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 07/01/2012
+			'*****************************************************************************************************************************************************************************
+	
+Function convertStringToArray(stringToConvert, separator, doubleQuoteEachValue)
+   Dim valuesArray
+   valuesArray=split(stringToConvert,separator)   
+   if(doubleQuoteEachValue) then  
+		For valueLooper=0 to UBound(valuesArray)
+			valuesArray(valueLooper)="""" & valuesArray(valueLooper) & """"
+	   Next
+   end if
+   convertStringToArray=valuesArray
+End Function
+
+'*****************************************************************************************************************************************************************************
+			'Function Name    		: getUniqueString
+			'Description     			: Function to generate a unique string
+			'Parameters Used     : startWith ("String should start with")
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 03/22/2012
+			'*****************************************************************************************************************************************************************************
+			Function getUniqueString(startWith)
+			Dim ampm
+			if(datePart("h",Now)>=12) then
+			ampm="pm"
+			else
+			ampm="am"
+			end if
+			getUniqueString=startWith & datePart("d",Now) & datePart("m",Now) & datePart("yyyy",Now) & datePart("h",Now) & datePart("n",Now) & datePart("s", Now) & int(100*rnd()) & ampm
+			End Function
+			
+			
+			'*****************************************************************************************************************************************************************************
+			'Function Name    		: getUniqueFilePath
+			'Description     			: Function to generate a unique string
+			'Parameters Used     : filePath ("File path that is to be made unique")
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 03/23/2012
+			'*****************************************************************************************************************************************************************************
+				Function getUniqueFilePath(filePath)
+					Dim fileName
+					Dim fileNameWithExt
+					Dim ext
+					Dim uniqueFileName
+					Dim dirWithoutFileName
+					fileNameWithExt=right(filePath,len(filePath)-instrRev(filePath,"\"))
+				   'fileNameWithExt contains the filename of the file contained in the path
+					dirWithoutFileName=left(filePath,instrRev(filePath,"\"))
+					'dirWithoutFile contains the parent directory of the fileNameWithExt with "\" at the end
+					if(instr(1,fileNameWithExt,".")>0) then
+					fileName=left(fileNameWithExt,instrRev(fileNameWithExt,".")-1)
+					ext=right(fileNameWithExt,len(fileNameWithExt)-instrRev(fileNameWithExt,".")+1)
+					else
+					fileName=fileNameWithExt
+					end if
+				   uniqueFileName=getUniqueString(fileName)
+					getUniqueFilePath=dirWithoutFileName & uniqueFileName & ext    
+				End Function
+		
+
+
+			'*****************************************************************************************************************************************************************************
+			'Function Name    		: setEnvVar
+			'Description     			: Function to set a user defined env variable
+			'Parameters Used     : 
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 07/6/2012
+			'*****************************************************************************************************************************************************************************
+			Function setEnvVar(varName, varValue)
+			   Environment.Value(varName)=varValue
+			End Function
+
+			'*****************************************************************************************************************************************************************************
+			'Function Name    		: getEnvVal
+			'Description     			: Function to get a user defined env variable
+			'Parameters Used     : 
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 07/6/2012
+			'*****************************************************************************************************************************************************************************
+			Function getEnvVar(varName)
+				getEnvVal=Environment.Value(varName)
+			End Function
+			
+			'*****************************************************************************************************************************************************************************
+			'Function Name    		: zipFolder
+			'Description     			: Create a Zip file for the given file or folder. If a zip file already exists with the same name, it is deleted and created anew
+			'Parameters Used     : 
+			'Author							:  Cardinal Automation Team 
+			'Date Created			: 30/6/2012
+			'*****************************************************************************************************************************************************************************			
+			Function zip(folderToZipPath, zippedFolderPath)	
+			   Dim result
+			   result=true
+				Dim fso
+				Set fso=CreateObject("Scripting.FileSystemObject")
+				folderToZipPath=fso.GetAbsolutePathName(folderToZipPath)
+				zippedFolderPath=fso.GetAbsolutePathName(zippedFolderPath)
+				If fso.FileExists(zippedFolderPath) Then     
+				   fso.DeleteFile zippedFolderPath
+			   End If
+			   if(NOT(fso.FileExists(folderToZipPath) OR fso.FolderExists(folderToZipPath))) then
+					result=false
+					zipFolder=result
+					Exit Function
+			   end if
+			   Dim zippedFile
+			   Set zippedFile = fso.CreateTextFile(zippedFolderPath) 
+			   zippedFile.Write Chr(80) & Chr(75) & Chr(5) & Chr(6) & String(18, 0) 
+			   zippedFile.Close
+			   Dim shell
+			   set shell = CreateObject("Shell.Application")
+			
+			   Dim zippedFolderNamespace
+			   Set zippedFolderNamespace = shell.NameSpace(zippedFolderPath)
+			 
+			   Dim folderToZipNamespace
+			   Set folderToZipNamespace = shell.NameSpace(folderToZipPath)
+			
+			   zippedFolderNamespace.CopyHere folderToZipNamespace.items,4   
+			   Do while zippedFolderNamespace.Items.Count < folderToZipNamespace.Items.Count
+				   print "Waiting to zip folder " & folderToZipPath & " to location " & zippedFolderPath
+				   wait(5)
+			   Loop 
+			   print "Zip complete"
+			   zipFolder=result  
+			End Function
+			
+			'*****************************************************************************************************************************************************************************
+			'Function Name    		: unzipFolder
+			'Description     			: Unzip the contents of a zipped file to another location. If the location already exists, it is not deleted, but the new files are added to that location, if the folder does not exists it is first created
+			'Parameters Used     : 
+			'Author							:  Cardinal Automation Team 
+			'Date Created			: 30/6/2012
+			'*****************************************************************************************************************************************************************************						
+			Function unzip(zippedFolderPath, extractLocation)
+				Dim result
+				result=true
+				Dim fso
+				Set fso=CreateObject("Scripting.FileSystemObject")
+				zippedFolderPath=fso.GetAbsolutePathName(zippedFolderPath)
+				extractLocation=fso.GetAbsolutePathName(extractLocation)
+				if(NOT(fso.FileExists(zippedFolderPath))) then
+					result=false
+					unzipFolder=result
+					Exit Function
+				end if
+				if(NOT(fso.FolderExists(extractLocation))) then
+					fso.CreateFolder(extractLocation)
+				end if
+			   Dim shell
+			   set shell = CreateObject("Shell.Application")
+			
+			   Dim zippedFolderNamespace
+			   Set zippedFolderNamespace = shell.NameSpace(zippedFolderPath)
+			 
+			   Dim extractLocationNamespace
+			   Set extractLocationNamespace = shell.NameSpace(extractLocation)
+			
+				extractLocationNamespace.CopyHere zippedFolderNamespace.Items,4
+				Do while extractLocationNamespace.Items.Count < zippedFolderNamespace.Items.Count
+				   print "Waiting to unzip folder " & zippedFolderPath & " to location " & extractLocation
+				   wait(5)
+			   Loop 
+			   unzipFolder=result  
+			End Function
+
+			'*****************************************************************************************************************************************************************************
+			'Function Name    		: getCurrentTestName
+			'Description     			: Get the name of the current test
+			'Parameters Used     : 
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 1/7/2012
+			'*****************************************************************************************************************************************************************************						
+			Function getCurrentTestName
+				if(executingFromALM) then
+					getCurrentTestName=QCUtil.CurrentTest.Name
+				else
+					getCurrentTestName=Environment.Value("TestName")
+				end if
+			End Function
+			
+			'*****************************************************************************************************************************************************************************
+			'Function Name    		: executingFromALM
+			'Description     			: Get whether the test is being executed from ALM or from local system
+			'Parameters Used     : 
+			'Author							:  Cardinal Automation Team (Lavneesh)
+			'Date Created			: 1/7/2012
+			'*****************************************************************************************************************************************************************************						
+			Function executingFromALM	
+				executingFromALM=true
+				Err.Clear
+				On Error Resume next
+				Dim testName
+				testName=QCUtil.CurrentTest.Name
+				If Err.Number<>0 Then
+					executingFromALM=false
+					Err.Clear
+				End If
+				On Error Goto 0
+			End Function 
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: executingFromALM
+'Description     			: Get whether the test is being executed from ALM or from local system
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 1/7/2012
+'*****************************************************************************************************************************************************************************						
+Function verifyFileExists(filePath, waitTime)
+
+	Dim fso, flag
+	Set fso = CreateObject("Scripting.FileSystemObject")
+	flag = false
+	Do While(waitTime > 0)		
+		If fso.FileExists(filePath) Then
+			Call logReport("Verify File exists.", "File should exists  - " & filePath, "File Exists", "Pass")
+			flag = true
+			Exit Do
+		Else
+			waitTime = waitTime - 1 
+			wait 1
+		End If
+	Loop
+    If flag = false Then
+		Call logReport("Verify File exists.", "File should exists - " & filePath, "File does not exists after " & waitTime & " sec.", "Fail")
+	End If
+	verifyFileExists = flag
+
+End Function
+
+
+Function click(tObject, displayName)
+
+	tObject.click
+	Call logReport("Click '" & displayName & "'", "Click on '" & displayName & "' " & tObject.getTOProperty("Class Name"), "Clicked successfully", "Pass" )
+
+End Function
+
+
+'**************************************************************
+                'Function - verifyWindow
+                'Description - Use this function to verify the existence of a window
+                'Parameter -  windowName("Title of the window to verify"), exactMatch("TRUE or FALSE depending on whether the window title is expected as it is"),waitTimeInSeconds
+                'Author - Lavneesh Chandna
+                'Date - Oct-26-2012
+'**************************************************************
+                Function verifyWindow(windowName, exactMatch, waitTimeInSeconds)
+
+					Dim windowDescription
+					Dim currWin
+                    Dim currWinTitle
+                    Dim windowFound
+                    Dim windows                                
+					Dim tryIndex
+					Set windowDescription=Description.Create
+					windowDescription("micclass").value="Window|Dialog"
+					windowFound=false         
+					windowName=UCase(windowName)
+					For tryIndex=1 to waitTimeInSeconds
+						Set windows=Desktop.ChildObjects(windowDescription)                                
+						On Error Resume Next                 
+						For currWin=0 to windows.count-1
+							currWinTitle=windows(currWin).getROProperty("title")
+							If InStr(1, currWinTitle, "QuickTest Professional") = 0 Then						
+								If(exactMatch) then
+									windowFound=(UCase(currWinTitle)=windowName)
+								Else
+									windowFound=(instr(1,UCase(currWinTitle),windowName)>0)
+								End if
+							End If
+							if(windowFound) then
+								Set verifyWindow=windows(currWin)
+								Exit For
+							end if
+						Next
+						On Error Goto 0
+						if(windowFound) then                                                                  
+							Exit For
+						end if
+						wait 0, 500
+					Next
+					if(IsEmpty(verifyWindow)) then
+						Set verifyWindow=Nothing
+					end if
+					print windowFound
+					               
+                End Function
+'**************************************************************
+                'Function - handleDownloadSecurityPopup
+                'Description - Use this function to handle download security dialog box 
+                'Parameter -  
+				'Return parameters-Return true when security popup exists and its handled else return false 
+                'Author - Lavneesh Chandna
+                'Date - Oct-26-2012
+'**************************************************************
+			Function handleDownloadSecurityPopup()
+					wait 2
+				   On error resume next 
+				   Window("foreground:=true").Activate
+				  If ( Window("foreground:=true").WinButton("Class Name:=WinButton","regexpwndtitle:=To help protect your security, " & ".*").exist(2)) then 
+        				Window("foreground:=true").WinButton("Class Name:=WinButton","regexpwndtitle:=To help protect your security, " & ".*").Click
+
+						 'Window("micclass:=Window","foreground:=true").WinButton("Class Name:=WinButton","regexpwndtitle:=To help protect your security, " & ".*").getROProperty("text")
+						wait 1
+						'Window("foreground:=true").WinButton("Class Name:=WinButton","regexpwndtitle:=To help protect your security, " & ".*").type
+						Window("foreground:=true").Type ("{DOWN}")
+						wait 1
+						Window("foreground:=true").Type ("{ENTER}")
+						handleDownloadSecurityPopup=true
+						else 
+						handleDownloadSecurityPopup=false
+				end if 
+				On error goto 0
+			End Function
+
+
+''***********************************************************************************************************************************************************
+
+'Function Name    		: getDateWithLeading0
+'Description     			: Function to convert date in leading 0 Format :- 'MM/DD/YYYY'
+'Parameters Used     : dDate - date which is to be converted in 2 digit format.
+'Author							:  Cardinal Automation Team (Viraj)
+'Date Created			: 04/16/2012
+'************************************************************************************************************************************************************
+Function getDateWithLeading0(dDate)
+
+	Dim dateToSelect
+	dateToSelect = dDate
+	If Len(dateToSelect) = 8 Then
+			dateToSelect = "0" & Left(dateToSelect, 1) & "/0" & Right(Left(dateToSelect, 3), 1) & "/" & Right(dateToSelect, 4)
+	ElseIf  Len(dateToSelect) = 9 And InStr(1, dateToSelect, "/") = 2 Then
+			dateToSelect = "0" & Left(dateToSelect, 1) & "/" & Right(Left(dateToSelect, 4), 2) & "/" & Right(dateToSelect, 4)
+	ElseIf  Len(dateToSelect) = 9 And InStr(1, dateToSelect, "/") = 3 Then
+			dateToSelect = Left(dateToSelect, 2) & "/0" & Right(Left(dateToSelect, 4), 1) & "/" & Right(dateToSelect, 4)
+	End If
+	getDateWithLeading0 = dateToSelect
+
+End Function
+
+
+''***********************************************************************************************************************************************************
+
+'Function Name    		: getTableData
+'Description     			: Function to get data from Table with exclusion rules on Rows and Columns.
+'Parameters Used     : tableObj, 
+'											withHeaders, 
+'											excludeRowFromTop,
+'											excludeRowFromBottom, 
+'											excludeColFromLeft, 
+'											excludeColFromRight)
+'Author							:  Cardinal Automation Team (Viraj)
+'Date Created			: 11/1/2012
+'************************************************************************************************************************************************************
+Function getTableData(tableObj, withHeaders, excludeRowFromTop,excludeRowFromBottom, excludeColFromLeft, excludeColFromRight)
+
+   Dim dataToReturn, i, j
+
+	If Not withHeaders Then
+		excludeRowFromTop = excludeRowFromTop + 1
+	End If
+	actRow = tableObj.RowCount
+	actCol = tableObj.getROProperty("cols")
+	Dim rows, cols
+	On Error Resume Next
+	rows = actRow - excludeRowFromTop - excludeRowFromBottom - 1
+	cols = actCol - excludeColFromLeft - excludeColFromRight - 1
+	ReDim dataToReturn(rows, cols)
+   For i = (excludeRowFromTop + 1) To (actRow - excludeRowFromBottom)
+		For j = (excludeColFromLeft + 1) To (actCol - excludeColFromRight)
+			Dim temp
+			dataToReturn(i, j) = tableObj.getCellData(i, j)
+			If InStr(1, dataToReturn(i, j), "ERROR: The specified cell does not exist") > 0 Then
+				dataToReturn(i, j) = ""
+			End If
+		Next
+   Next
+   On Error Goto 0
+	getTableData = dataToReturn
+
+End Function
+
+
+''***********************************************************************************************************************************************************
+
+'Function Name    		: savePDFAsText
+'Description     			: Function to save PDF file as text file.
+'Parameters Used     : dDate - date which is to be converted in 2 digit format.
+'Author							:  Cardinal Automation Team (Viraj)
+'Date Created			: 04/16/2012
+'************************************************************************************************************************************************************
+Function savePDFAsText(pdfWinObj, filepath)
+
+   pdfWinObj.Activate
+   winTitle = pdfWinObj.GetROProperty("title")
+	If InStr(1, winTitle, "Reader") > 0 Then
+		pdfWinObj.Type micAltDwn + "F" + micAltUp
+		wait 0, 500
+		pdfWinObj.Type "A"
+		wait 0, 500
+		pdfWinObj.Type "x"
+	ElseIf InStr(1, winTitle, "Acrobat") > 0 Then
+		pdfWinObj.Type micShiftDwn + micCtrlDwn + "S" + micLShiftUp + micCtrlUp
+	End If
+	
+	If Dialog("SaveAs").Exist(10)Then
+		Dialog("SaveAs").WinEdit("txtFileName").Set filepath
+		wait 0, 500
+		Dialog("SaveAs").WinComboBox("cmbSaveAsType").Select "Text (Accessible) (*.txt)"
+		wait 0, 500
+		Dialog("SaveAs").WinButton("btnSave").Click
+	End If
+
+	Dim fso, cnt
+	cnt = 60
+	Set fso = CreateObject("Scripting.FileSystemObject")
+	Do While Not fso.FileExists(filepath)
+		wait 1
+		cnt = cnt - 1
+		If cnt = 0 Then
+			Print "File = " & filepath & "not exists after 60 Seconds."
+			Exit Do
+		End If
+	Loop
+	Print "File = " & filepath & " exists after " & (60 - cnt) & " Seconds."
+	wait 2
+
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: VS
+'Description     			: Verify the state of an object by checking the value of any property in it, also perform action on the object in case the property is not set
+'Parameters Used     : object, propToVerify, expectedTextRegex, objectName, optionalActionToPerformInCaseOfFailure, optionalData, logFailure
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 2/18/2013
+'*****************************************************************************************************************************************************************************						
+Function VS(object, propToVerify, expectedTextRegex, optionalActionToPerformInCaseOfFailure, optionalData, objectName)
+	Dim result
+	result=false
+   if(objectExists(object,"")) then		
+		Dim reg
+		Set reg=new RegExp
+		reg.global=true
+		reg.ignorecase=true
+		reg.pattern=trim(expectedTextRegex)
+	 	if(reg.test(trim(object.getROProperty(propToVerify)))) then
+			result=true
+			Call logReport("Verify the object " & objectName,propToVerify & " should be : " & expectedTextRegex ,"Is : " & object.getROProperty(propToVerify) ,"PASS")
+		else
+			Call logReport("Verify the object " & objectName,propToVerify & " should be : " & expectedTextRegex,"Is : " & object.getROProperty(propToVerify) ,"FAIL")
+			On Error Resume Next
+			Reporter.Filter=rfDisableAll
+			print optionalActionToPerformInCaseOfFailure
+			if(Err.Number=0) then
+				if(NOT isNull(optionalActionToPerformInCaseOfFailure)) then
+					if(NOT optionalActionToPerformInCaseOfFailure="") then
+						Err.Clear
+						print optionalData
+						if(Err.Number=0) then
+							result=PA(object,optionalActionToPerformInCaseOfFailure,optionalData , objectName)						
+						else
+							result=PA(object,optionalActionToPerformInCaseOfFailure, , objectName)
+						end if
+					End If
+				End If
+			End If
+
+			On Error Goto 0
+			Reporter.Filter=rfEnableAll
+		
+		end if		
+   else
+		Call logReport("Verify the object " & objectName,propToVerify & " should be : " & expectedTextRegex ,"Object not found","FAIL")
+   end if
+	VS=result
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: PA
+'Description     			: Perform a given action on the passed object
+'Parameters Used     : data("Could be a single data, or blank, or an Array)
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/7/2012
+'*****************************************************************************************************************************************************************************						
+Function PA(object, action, data, objectName)      
+   On Error Resume Next   
+   Dim result, dataLog
+   result=false
+   Err.Clear
+   Dim objectExistsResult
+   objectExistsResult=objectExists(object,60)
+   if(objectExistsResult AND Err.Number=0) then
+	   Dim executeStat
+	   print data
+	   if(Err.Number<>0) then
+	 		if(IsArray(data)) then
+				executeStat="call object" & "." & action & "(" & """" & join(data,""",""") & """)"
+				dataLog="With data (" & """" & join(data,""",""") & """)"
+			else
+				executeStat="call object" & "." & action & "()"
+			end if			
+	   else
+			executeStat="call object" & "." & action & "(""" & data & """)"
+			dataLog="With data " & data
+	   end if
+	   Err.Clear	 	 
+		 Execute executeStat
+		 if(Err.Number<>0) then
+			result=false
+		 else
+			result=true
+		 end if   
+	else
+		if(Err.Number=0) then
+			Err.Raise vbobjectError+1,"Perform Action","Object does not exist"
+		end if
+   end if
+   if(result) then
+	Call logReport("Perform " & UCase(action) & " on " & objectName & " " & dataLog,"Action performed successfully","Action performed successfully","PASS")
+   else
+	Call logReport("Perform " & UCase(action) & " on " & objectName & " " & dataLog,"Action performed successfully","Action could not be performed. Error: " & Err.Description,"FAIL")
+   end if
+	PA=result 
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: handleWindowsDialog
+'Description     			: Handle default Windows pop-up dialog boxes
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/10/2012
+'*****************************************************************************************************************************************************************************						
+Function handleWindowsDialog(windowTitle, exactMatch, buttonToClick, waitTime)
+ Dim windowObject,buttons, buttonDesc
+ Set windowObject=verifyWindow(windowTitle,exactMatch,waitTime)
+	if(NOT windowObject Is Nothing) then		
+		Set buttonDesc=Description.Create
+		buttonDesc("micclass").value="WinButton"
+		buttonDesc("text").value=buttonToClick
+		Set buttons=windowObject.childObjects(buttonDesc)
+		if(buttons.count>0) then
+			if(pa(buttons(0),"click",,buttonToClick)) then
+				Call logReport("Handle the dialog with window title " & windowTitle & " by clicking on the button " & buttonToClick,"If windows appears then handle it","Window appeared, button clicked","PASS")
+			else
+				Call logReport("Handle the dialog with window title " & windowTitle & " by clicking on the button " & buttonToClick,"If windows appears then handle it","Window appeared, button not clicked " & Err.Description,"FAIL")
+			end if
+		else
+			Call logReport("Handle the dialog with window title " & windowTitle & " by clicking on the button " & buttonToClick,"If windows appears then handle it","Window appeared, button not found","FAIL")
+		end if
+	end if
+End Function
+
+
+
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: get1DSeparator
+'Description     			: Returns the separator to sparate One Dimensional Input
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Shipra)
+'Date Created			: 12/14/2012
+'*****************************************************************************************************************************************************************************						
+Function get1DSeparator
+	get1DSeparator = "1$1"
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: get2DSeparator
+'Description     			: Returns the separator to sparate Two Dimensional Input
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Shipra)
+'Date Created			: 12/14/2012
+'*****************************************************************************************************************************************************************************						
+Function get2DSeparator
+	 get2DSeparator = "2$2"
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: getPSFrom1dArray
+'Description     			: Returns the paramter string from the array, delimitted by get1DSeparator
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/14/2012
+'*****************************************************************************************************************************************************************************						
+Function getPSFrom1dArray(oneDArray)
+	if(IsArray(oneDArray)) then
+		getPSFrom1dArray=join(oneDArray,get1DSeparator)
+	else
+		getPSFrom1dArray=oneDArray
+	end if
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: get1dArrayFromPS
+'Description     			: Returns the 1D array from the parameter string delimitted by get1DSeparator
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/14/2012
+'*****************************************************************************************************************************************************************************						
+Function get1dArrayFromPS(parameterString)
+	get1dArrayFromPS=split(parameterString,get1DSeparator)
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: get2dArrayFromPS
+'Description     			: Returns the 2D array from the parameter string delimitted by get2DSeparator and get1DSeparator
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/24/2012
+'*****************************************************************************************************************************************************************************						
+Function get2dArrayFromPS(parameterString)   
+	Dim firstDimAOA, firstDim
+	Dim currFDIndex, currSDIndex, currSecondDimArray
+	Dim finalArray()	
+	firstDimAOA=split(parameterString,get2DSeparator)
+	firstDim=UBound(firstDimAOA)
+	ReDim finalArray(firstDim,UBound(split(firstDimAOA(0),get1dSeparator)))
+	For currFDIndex=0 to firstDim
+		currSecondDimArray=split(firstDimAOA(currFDIndex),get1dSeparator)		
+		For currSDIndex=0 to UBound(currSecondDimArray)
+			finalArray(currFDIndex,currSDIndex)=currSecondDimArray(currSDIndex)
+		Next		
+	Next
+	get2dArrayFromPS=finalArray
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: getPSFrom2dArray
+'Description     			: Returns the paramter string from the 2d array
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/24/2012
+'*****************************************************************************************************************************************************************************
+Function getPSFrom2dArray(twoDArray)
+   if(isArray(twoDArray)) then
+		Dim secondDim, firstDim
+		Dim currFDIndex, currSDIndex
+		secondDim=UBound(twoDArray,2)
+		firstDim=UBound(twoDArray,1)
+		Dim finalString
+		For currFDIndex=0 to firstDim
+			For currSDIndex=0 to secondDim
+				finalString=finalString & twoDArray(currFDIndex,currSDIndex) & get1DSeparator
+			Next
+			finalString=left(finalString,len(finalString)-len(get1DSeparator))
+			finalString=finalString & get2DSeparator
+		Next
+		finalString=left(finalString,len(finalString)-len(get2DSeparator))
+		getPSFrom2dArray=finalString
+	else
+		getPSFrom2dArray=twoDArray
+	end if
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: getPSFromAOAs
+'Description     			: Returns the paramter string from the array of arrays
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/24/2012
+'*****************************************************************************************************************************************************************************
+Function getPSFromAOAs(AOAs)
+	if(isArray(AOAs)) then
+	   Dim finalString
+	   Dim currArray
+	   Dim currIndexOfCurrArray	
+		For currArray=0 to UBound(AOAs)
+			For currIndexOfCurrArray=0 to UBound(AOAs(currArray))
+				finalString=finalString & AOAs(currArray)(currIndexOfCurrArray) & get1DSeparator
+			Next
+			finalString=left(finalString,len(finalString)-len(get1DSeparator))
+			finalString=finalString & get2DSeparator
+		Next
+		finalString=left(finalString,len(finalString)-len(get2DSeparator))
+		getPSFromAOAs=finalString
+	else
+		getPSFromAOAs=AOAs
+	end if
+
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: getAOAsFromPS
+'Description     			: Returns the Array of arrays from the PS
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/24/2012
+'*****************************************************************************************************************************************************************************
+Function getAOAsFromPS(parameterString)
+	Dim arrays, finalArray()
+	arrays=split(parameterString,get2DSeparator)
+	ReDim finalArray(UBound(arrays))
+	For currArray=0 to UBound(arrays)
+		finalArray(currArray)=split(arrays(currArray),get1dSeparator)
+	Next
+	getAOAsFromPS=finalArray
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: getUniqueItemsFrom1dArray
+'Description     			: Returns the Array of unique items
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team (Lavneesh)
+'Date Created			: 12/24/2012
+'*****************************************************************************************************************************************************************************
+Function getUniqueItemsFrom1dArray(dupItemsArray)
+   Dim uiDic
+	Set uiDic=CreateObject("Scripting.Dictionary")
+	For each di in dupItemsArray
+		if(NOT uiDic.Exists(di)) then
+			Call uiDic.Add(di,0)
+		End if
+	Next
+	getUniqueItemsFrom1dArray=uiDic.Keys
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: CloseAllBrowsersExceptALM
+'Description     			: 
+'Parameters Used     : 
+'Author							:  Cardinal Automation Team(Lavneesh)
+'Date Created			: 12/27/2012
+'*****************************************************************************************************************************************************************************
+Function CloseAllBrowsersExceptALM ()
+   Dim ieDesc
+   Set ieDesc=Description.Create
+   ieDesc("title").value=".*Internet Explorer.*"
+	Dim ieWins
+	Set ieWins=Desktop.ChildObjects(ieDesc)
+	Dim currIE
+	On Error Resume Next
+	Reporter.Filter=rfDisableAll
+	For currIE=0 to ieWins.count-1
+		if(instr(1,ieWins(currIE).getRoProperty("title"),"HP Application Lifecycle Management")=0) then	
+			ieWins(currIE).close
+		end if
+	Next
+	Reporter.Filter=rfEnableAll
+	On Error Goto 0
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: getMatchingObjects
+'Description     			:  When all else fails, use this method to get a precise array of al lthe objects matching your expectations
+'Parameters Used     :  parentObject - Object in which to find the target object
+'										:  targetObjectClass - Class of the object to find. For eg - SAPGuiLabel
+'										:   targetObjectValueArray_NoIndex - Expected values of the given properties
+'										:  
+'Author							:  Cardinal Automation Team(Lavneesh)
+'Date Created			:  15Jan 2012
+'*****************************************************************************************************************************************************************************
+Function getMatchingObjects(parentObject, targetObjectClass, targetObjectPropArray_NoIndex, targetObjectValueArray_NoIndex)
+   if(parentObject.exist) then
+		Dim stat
+		if(UBound(targetObjectPropArray_NoIndex)=UBound(targetObjectValueArray_NoIndex)) then
+		else
+		end if
+		stat="parentObject." & targetObjectClass & "(""micclass:=" & targetObjectClass & """"
+		Dim currProp
+		For currProp=0 to UBound(targetObjectPropArray_NoIndex)
+			stat=stat & ",""" & targetObjectPropArray_NoIndex(currProp) & ":=" & targetObjectValueArray_NoIndex(currProp) & """"
+		Next
+		Dim objDic
+		Set objDic=CreateObject("Scripting.Dictionary")	
+		Dim currObjIndex, currObject, currObjectKey
+		currObjIndex=0
+		On Error Resume Next
+		Reporter.Filter=rfDisableAll
+		Do While(true)
+			execute "Set currObject=" & stat & ",""index:=" & currObjIndex & """)"
+			if(objectExists(currObject,1)) then
+				currObjectKey=currObject.getROProperty("abs_x") & "," & currObject.getROProperty("abs_y")
+				if(objDic.Exists(currObjectKey)) then
+					Exit Do
+				else
+					call objDic.Add(currObjectKey,currObject)
+				end if
+			else
+				Exit Do
+			end if
+			currObjIndex=currObjIndex+1
+		Loop	
+		On Error Goto 0
+		Reporter.Filter=rfEnableAll
+		getMatchingObjects=objDic.Items
+	else
+		print "WARNING. Paremnt object not found. " & "Trying to find items of class " & targetObjectClass & " with property fields as " & join(targetObjectPropArray_NoIndex,",") & " having values " & join(targetObjectValueArray_NoIndex,",")
+		getMatchingObjects=Array()
+	end if
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: objectExists
+'Description     			:  Check for existene of an object
+'Parameters Used     :  object, waitTime_EmptyStringForDefault ("Integer value to tell the amount of time to wait, can be "")
+'										:  
+'Author							:  Cardinal Automation Team(Lavneesh)
+'Date Created			:  17Jan 2012
+'*****************************************************************************************************************************************************************************
+Function objectExists(ByVal object, waitTime_EmptyStringForDefault)
+   On Error Resume Next
+   Reporter.Filter=rfDisableAll
+   Err.Clear
+   Dim waitTime
+   if(waitTime_EmptyStringForDefault="") then
+		waitTime_EmptyStringForDefault=Setting("DefaultTimeout")/1000
+   end if
+   Dim result
+   result=false
+   result=object.exist(cint(waitTime_EmptyStringForDefault))
+ 	if(cbool(result)) then
+		objectExists=true
+	else
+		objectExists=false
+	end if
+   Reporter.Filter=rfEnableAll
+   On Error Goto 0
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: join1dArrays
+'Description     			:  Join any number of 1d arrays
+'Parameters Used     :  
+'										:  
+'Author							:  Cardinal Automation Team(Lavneesh)
+'Date Created			:  28 Feb 2012
+'*****************************************************************************************************************************************************************************
+Function join1dArrays(arrayOfArraysToJoin)
+	Dim currArr
+	Dim finalArray()
+	ReDim finalArray(-1)
+	For currArr=0 to UBound(arrayOfArraysToJoin)
+		Dim currIndex
+		currIndex=UBound(finalArray)+1
+		ReDim Preserve finalArray(currIndex + UBound(arrayOfArraysToJoin(currArr)))
+		Dim ciToEnter, ciOfCurrArray
+		ciOfCurrArray=0
+		For ciToEnter=currIndex to UBound(finalArray)
+			finalArray(ciToEnter)=arrayOfArraysToJoin(currArr)(ciOfCurrArray)
+			ciOfCurrArray=ciOfCurrArray+1
+		Next
+	Next
+	join1dArrays=finalArray
+End Function
+
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: waitForAttachmentToExistInCurrentTestSetTest
+'Description     			:  Wait for waitTimeInMin minutes for an attachemtn to exist in the Current Running Test in Test Set
+'Parameters Used     :  
+'										:  
+'Author							:  Cardinal Automation Team(Viraj)
+'Date Created			:  15 Mar 2012
+'*****************************************************************************************************************************************************************************
+Function waitForAttachmentToExistInCurrentTestSetTest(scriptName, attachName, waitTimeInMin)
+   if(executingFromALM) then
+		attachName=trim(UCase(attachName))
+		scriptName=trim(UCase(scriptName))
+		Dim endTime, foundScript, foundAttachment
+		endTime = Timer + waitTimeInMin * 60
+		foundAttachment = False	
+		Dim thetest, TestCase, atmts, atmtList, atmt	
+		Do While(Timer < endTime)
+			foundScript = False
+			Set theTest = QCUtil.CurrentTestSet.TSTestFactory.Newlist("")
+			For each TestCase In theTest			
+				If instr(1,Trim(UCase(TestCase.Name)),scriptName)>0 Then
+					foundScript = True
+					Set atmts=TestCase.Attachments
+					Set atmtList=atmts.newList("")	
+					foundAttachment = False	
+					For each atmt in atmtList
+						If InStr(1, trim(UCase(atmt.Name)), attachName) > 0 Then
+							foundAttachment = True
+							Print "Got File" & attachName
+							Exit Do
+						End If
+					Next
+				End If
+				If foundScript Then
+					Exit For
+				End If
+			Next	
+			wait 5
+		Loop
+		If Not foundAttachment Then
+			Print "Attachement " & attachName & " not found for Script - " & scriptName & " in " & waitTimeInMin & " Minutes."
+		End If
+		waitForAttachmentToExistInCurrentTestSetTest = foundAttachment
+	else
+		waitForAttachmentToExistInCurrentTestSetTest = false
+	end if
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: waitForAttachmentToExistInCurrentTestSetTest
+'Description     			:  Wait for waitTimeInMin minutes for an attachemtn to exist in the Current Running Test in Test Set
+'Parameters Used     :  
+'										:  
+'Author							:  Cardinal Automation Team(Viraj)
+'Date Created			:  15 Mar 2012
+'*****************************************************************************************************************************************************************************
+Function waitForAttachmentToExistInCurrentTestSet(attachName, waitTimeInMin)
+
+   If (executingFromALM) Then
+		
+		Dim endTime, foundAttachment
+		Dim thetest, TestCase, atmts, atmtList, atmt	
+		
+		foundAttachment = False	
+		attachName = Trim(UCase(attachName))
+		endTime = Timer + waitTimeInMin * 60
+
+		Do While(Timer < endTime)
+			Set theTest = QCUtil.CurrentTestSet.TSTestFactory.Newlist("")
+			For each TestCase In theTest			
+				Set atmts=TestCase.Attachments
+				Set atmtList=atmts.newList("")	
+				foundAttachment = False	
+				For each atmt in atmtList
+					If InStr(1, Trim(UCase(atmt.Name)), attachName) > 0 Then
+						foundAttachment = True
+						Print "Got File" & attachName
+						Exit Do
+					End If
+				Next
+			Next	
+			Wait 5
+		Loop
+
+		If Not foundAttachment Then
+			Print "Attachement " & attachName & " not found for in " & waitTimeInMin & " Minutes."
+		End If
+		waitForAttachmentToExistInCurrentTestSet = foundAttachment
+	Else
+		waitForAttachmentToExistInCurrentTestSet = false
+	End If
+
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: removeAllAttachmentsInCurrentTestSetTest
+'Description     			:  Remove all attathments matching the fileNameRegex regex
+'Parameters Used     :  
+'										:  
+'Author							:  Cardinal Automation Team(Viraj)
+'Date Created			:  15 Mar 2012
+'*****************************************************************************************************************************************************************************
+Function removeAllAttachmentsInCurrentTestSetTest(fileNameRegex)
+   'Write code delete all attachments matching the given regular expression
+   if(executingFromALM) then
+	   Dim rege
+	   Set rege=new RegExp
+		rege.ignorecase=true
+		rege.global=true
+		rege.pattern=fileNameRegex
+	
+		Dim TestCase, atmts, atmtList, atmt		
+		Set TestCase=QCUtil.CurrentTestSetTest
+		Set atmts=TestCase.Attachments
+		Set atmtList=atmts.newList("")		
+		For each atmt in atmtList
+			print atmt.Name
+			print rege.test(atmt.Name)
+			If (rege.test(atmt.Name)) Then
+				atmts.removeItem atmt.ID
+			End If
+		Next	
+	end if	
+End Function
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: removeAllAttachmentsOfCurrentTestSet
+'Description     			:  Remove all attathments of current Test Set matching the fileNameRegex regex
+'Parameters Used     :  
+'										:  
+'Author							:  Cardinal Automation Team(Viraj)
+'Date Created			:  15 Mar 2012
+'*****************************************************************************************************************************************************************************
+Function removeAllAttachmentsOfCurrentTestSet(fileNameExtension)
+
+	'Write code delete all attachments matching the given regular expression
+'	Dim rege
+'	Set rege=new RegExp
+'	rege.ignorecase=true
+'	rege.global=true
+'	rege.pattern=AttachmentName
+
+	Dim TestCases, atmts, atmtList, atmt, testScript, TSFact, TestSet
+
+	Set TestCases = QCUtil.CurrentTestSet
+	Set TSFact = TestCases.TSTestFactory
+	Set TestSet = TSFact.NewList("")
+
+	For each testScript in TestSet
+
+		Set atmts = testScript.Attachments
+		Set atmtList = atmts.newList("")
+
+		For each atmt in atmtList
+			If InStr(1, atmt.Name, fileNameExtension) > 0 Then
+			'If (rege.test(atmt.Name)) Then
+				atmts.removeItem atmt.ID
+				Print "Deleted " & atmt.Name & " from " & testScript.Name
+			End If
+		Next	
+	Next
+
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: uploadAttachmentToCurrentTestSetTest
+'Description     			:  Upload an attachment to the current test set test
+'Parameters Used     :  
+'										:  
+'Author							:  Cardinal Automation Team(Viraj)
+'Date Created			:  15 Mar 2012
+'*****************************************************************************************************************************************************************************
+Function uploadAttachmentToCurrentTestSetTest(filePath)
+
+   If(executingFromALM) Then
+		Set curTest=QCUtil.CurrentTestSetTest
+		Set atmt=curTest.attachments.addItem(Null)
+		atmt.FileName = filePath
+		atmt.Type=1
+		atmt.post	
+	End If
+
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: getNewTextFile
+'Description     			:  Get a new text file
+'Parameters Used     :  
+'										:  
+'Author							:  Cardinal Automation Team(Viraj)
+'Date Created			:  15 Mar 2012
+'*****************************************************************************************************************************************************************************
+Function getNewTextFile(fileName, data)
+
+	Dim fileToUp
+	fileToUp = Environment("SystemTempDir") & "\" & fileName & ".txt"
+	Dim fso
+	Set fso=CreateObject("Scripting.FileSystemObject")
+	Dim ts
+	Set ts= fso.CreateTextFile(fileToUp, True)
+	ts.Write(data)
+	ts.Close
+	getNewTextFile=fileToUp
+
+End Function
+
+
+'*****************************************************************************************************************************************************************************
+'Function Name    		: verifySort
+'Description     			:  Function to verify Data array is sorted as per requirement.
+'Parameters Used     :  arrDataToVerify - Array of data to verfied for Sorting.
+'										:  SortOrder - Sorting Order :- Ascending Or Descending
+'										:  DataType - Integer, String, Date
+'Author							:  Cardinal Automation Team(Viraj)
+'Date Created			:  15 Mar 2012
+'*****************************************************************************************************************************************************************************
+Function verifySort(arrDataToVerify, SortOrder, DataType)
+
+	If IsArray(arrDataToVerify) Then
+		Dim i, result
+		result = True
+		If InStr(1, Ucase(DataType), "INT") > 0 Then
+			For i=0 To Ubound(arrDataToVerify)
+				arrDataToVerify(i) = CInt(arrDataToVerify(i))
+			Next
+		ElseIf InStr(1, Ucase(DataType), "STR") > 0 Then
+			For i=0 To Ubound(arrDataToVerify)
+				arrDataToVerify(i) = CStr(arrDataToVerify(i))
+			Next
+		ElseIf InStr(1, Ucase(DataType), "DATE") > 0 Then
+			For i=0 To Ubound(arrDataToVerify)
+				If Replace(arrDataToVerify(i), " ", "") <> "" Then
+					arrDataToVerify(i) = CDate(arrDataToVerify(i))
+				End If
+			Next
+		End If
+	
+		If Instr(1, Ucase(SortOrder), "DESC") > 0 Then
+			For i=0 To Ubound(arrDataToVerify) - 1
+				If arrDataToVerify(i) < arrDataToVerify(i+1) Then
+					result = False
+					Exit For
+				End If
+			Next
+		Else
+			For i=0 To Ubound(arrDataToVerify) - 1
+				If arrDataToVerify(i) > arrDataToVerify(i+1) Then
+					result = False
+					Exit For
+				End If
+			Next
+		End If
+		verifySort = result
+	Else
+		Print "Invalid Data Type. Please use Array for Sort Verification."
+	End If
+
+End Function

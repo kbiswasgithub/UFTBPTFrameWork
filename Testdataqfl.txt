@@ -1,0 +1,78 @@
+'Important instructions before you start using this library
+'This library assumes that the TestData.xml file exists in the temp folder. 
+'This file is should be attached to the project folder in test plan and should be download from there to temp folder before any of the methods in this library can be called
+Function getRTTD(testDataName)   
+   Dim tempData
+                Set xmlDoc = CreateObject("Microsoft.XMLDOM") 
+                xmlDoc.load(Environment.Value("SystemTempDir") & "\" & "TestData.xml")
+                Set node=xmlDoc.documentElement.selectSingleNode("Runtime_Test_Data/" & testDataName)
+                if(node is nothing) then               
+                                print "No runtime test data found for the test data name " & testDataName                      
+                else
+                                                tempData=node.text
+                end if
+                getRTTD=tempData
+End Function
+
+Function setRTTD(testDataName, testDataValue)   
+  Dim testName
+                testName=getCurrentTestName
+                Set xmlDoc = CreateObject("Microsoft.XMLDOM") 
+                xmlDoc.load(Environment.Value("SystemTempDir") & "\" & "TestData.xml")   
+                Set node=xmlDoc.documentElement.selectSingleNode("Runtime_Test_Data/" & testDataName)
+                if(node is nothing) then
+                                Set node=xmlDoc.createElement(testDataName)
+                                node.Text=testDataValue
+                                Set parentNode=xmlDoc.documentElement.selectSingleNode("Runtime_Test_Data")
+                                parentNode.appendChild node                                
+                else
+                                                node.text=testDataValue
+                end if
+                xmlDoc.save Environment.Value("SystemTempDir") & "\" & "TestData.xml"
+End Function
+
+Function getTD(testDataName, iterationIndex)   
+   Dim tempData
+    Dim testName
+                testName=getCurrentTestName                                              
+                Set xmlDoc = CreateObject("Microsoft.XMLDOM") 
+                xmlDoc.load(Environment.Value("SystemTempDir") & "\" & "TestData.xml")
+                Set node=xmlDoc.documentElement.selectSingleNode("Static_Test_Data/" & testDataName & "/" & "Iteration" & "_" & iterationIndex & "/" & testName)                                
+                if(node is nothing) then
+                
+                                Set node=xmlDoc.documentElement.selectSingleNode("Static_Test_Data/" & testDataName & "/" & "Iteration" & "_" & iterationIndex)
+                                
+                                if(node is nothing) then
+                                                Set node=xmlDoc.documentElement.selectSingleNode("Static_Test_Data/" & testDataName)
+                                                if(node is nothing) then
+                                                                msgbox "No test data found for the test data name " & testDataName
+                                                                Exit Function
+                                                else
+                                                                tempData=node.getAttribute("default")
+                                                end if
+                                else
+                                                tempData=node.getAttribute("default")                                             
+                                end if
+                else
+                                                tempData=node.text                                     
+                end if                                                                                                    
+                Dim temp            
+                On Error Resume Next
+                Execute "temp=" & tempData                    
+                if(isArray(temp)) then
+                                getTD=temp
+                else
+                                getTD=tempData
+                end if    
+                On Error Goto 0
+End Function
+
+Function endTD   
+                 if(executingFromALM) then
+                                Set fso=CreateObject("Scripting.FileSystemObject")
+                                call fso.DeleteFile(Environment.Value("SystemTempDir") & "\" & "TestData.xml",true)
+                                Do while(fso.FileExists( Environment.Value("SystemTempDir") & "\" & "TestData.xml"))
+                                                wait(1)
+                                Loop      
+                end if
+End Function
